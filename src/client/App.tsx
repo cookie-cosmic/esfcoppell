@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { Layout } from './components/Layout';
-import { ToastProvider } from './components/ui';
+import { Loading, ToastProvider } from './components/ui';
 import { api, SESSION_EXPIRED_EVENT } from './lib/api';
 import { STAFF_BASE } from './lib/paths';
 import Home from './pages/Home';
@@ -45,7 +45,7 @@ export default function App() {
         <Route
           path={`${STAFF_BASE}/*`}
           element={
-            !session.loaded ? null : session.admin ? (
+            !session.loaded ? <div className="auth-wrap"><Loading label="Checking staff access…" /></div> : session.admin ? (
               <AdminLayout session={session} setSession={setSession} />
             ) : (
               <Navigate to={`${STAFF_BASE}/login`} replace state={{ from: location.pathname }} />

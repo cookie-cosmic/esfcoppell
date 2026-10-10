@@ -1,4 +1,4 @@
-import { useApi, usePageTitle, useReveal } from '../lib/hooks';
+import { asArray, useApi, usePageTitle, useReveal } from '../lib/hooks';
 import { initials } from '../lib/format';
 import { ErrorNote, Loading, SmartImage } from '../components/ui';
 import { IconMail, IconArrow, SmileMark } from '../components/icons';
@@ -56,7 +56,7 @@ export default function Team() {
   const { data, loading, error, reload } = useApi<any[]>('/api/team');
   const ref = useReveal<HTMLDivElement>();
 
-  const members = [...(data ?? [])].sort((a, b) => a.order - b.order);
+  const members = [...asArray(data)].sort((a, b) => a.order - b.order);
   const tier1 = members.slice(0, 1);
   const tier2 = members.slice(1, 3);
   const tier3 = members.slice(3, 6);

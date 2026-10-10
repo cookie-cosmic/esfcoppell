@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import { api, ApiError } from '../lib/api';
-import { useApi, usePageTitle } from '../lib/hooks';
+import { asArray, useApi, usePageTitle } from '../lib/hooks';
 import { LEVEL_LABEL, fmtDate, fmtHours } from '../lib/format';
 import { EmptyState, ErrorNote, Field, Loading, Pagination, ProgressBar, useToast } from '../components/ui';
 import { IconCheck, IconClock, IconMedal } from '../components/icons';
@@ -56,6 +56,8 @@ export default function Hours() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [created, setCreated] = useState<{ access_code: string } | null>(null);
+  const eventList = asArray(events);
+  const activityList = asArray(activities);
 
   const set = (k: keyof typeof emptyForm) => (e: any) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
@@ -70,7 +72,7 @@ export default function Hours() {
     setSubmitting(true);
     try {
       const eventName = form.event_pick === '__other' ? form.event_other.trim() : form.event_pick;
-      const pickedEvent = (events ?? []).find((ev) => ev.title === form.event_pick);
+      const pickedEvent = eventList.find((ev) => ev.title === form.event_pick);
       const res = await api.post('/api/submissions', {
         first_name: form.first_name.trim(),
         last_name: form.last_name.trim(),
@@ -163,10 +165,10 @@ export default function Hours() {
                     <select className="input" value={form.event_pick} onChange={set('event_pick')}>
                       <option value="">Select…</option>
                       <optgroup label="Upcoming / recent chapter events">
-                        {(events ?? []).filter((e) => e.status === 'published').map((e) => <option key={e.id} value={e.title}>{e.title}</option>)}
+                        {eventList.filter((e) => e.status === 'published').map((e) => <option key={e.id} value={e.title}>{e.title}</option>)}
                       </optgroup>
                       <optgroup label="Ongoing activities">
-                        {(activities ?? []).map((a) => <option key={a.id} value={a.title}>{a.title}</option>)}
+                        {activityList.map((a) => <option key={a.id} value={a.title}>{a.title}</option>)}
                       </optgroup>
                       <option value="__other">Other approved activity…</option>
                     </select>
@@ -291,7 +293,7 @@ function Directory() {
                 <tr><th>Student</th><th>School level</th><th>Approved hours</th><th style={{ minWidth: 170 }}>Silver progress</th><th style={{ minWidth: 170 }}>Gold progress</th></tr>
               </thead>
               <tbody>
-                {data.students.map((s: any, i: number) => (
+                {asArray(data.students).map((s: any, i: number) => (
                   <tr key={i}>
                     <td><strong>{s.first_name} {s.last_name}</strong></td>
                     <td>{LEVEL_LABEL[s.school_level] ?? s.school_level}</td>
@@ -309,7 +311,7 @@ function Directory() {
               </tbody>
             </table>
           </div>
-          {!data.students.length ? <EmptyState glyph="🔍" title="No matching volunteers yet" body="Approved totals appear here once hours are approved." /> : null}
+          {!asArray(data.students).length ? <EmptyState glyph="🔍" title="No matching volunteers yet" body="Approved totals appear here once hours are approved." /> : null}
           <p className="tiny muted" style={{ marginTop: 10 }}>Showing {data.count} student(s) with approved hours.</p>
         </>
       ) : null}
@@ -351,7 +353,7 @@ function Records() {
                 <tr><th>Student</th><th>School level</th><th>Event</th><th>Date</th><th>Type</th><th>Approval status</th><th>Approved hours</th></tr>
               </thead>
               <tbody>
-                {data.records.map((r: any) => (
+                {asArray(data.records).map((r: any) => (
                   <tr key={r.id}>
                     <td><strong>{r.first_name} {r.last_name}</strong></td>
                     <td>{LEVEL_LABEL[r.school_level] ?? r.school_level}</td>
@@ -366,7 +368,7 @@ function Records() {
             </table>
           </div>
           <Pagination page={data.page} pages={data.pages} onPage={setPage} />
-          {!data.records.length ? <EmptyState glyph="📄" title="No approved records yet" body="Once administrators approve submissions, the official service sheet fills in here." /> : null}
+          {!asArray(data.records).length ? <EmptyState glyph="📄" title="No approved records yet" body="Once administrators approve submissions, the official service sheet fills in here." /> : null}
         </>
       ) : null}
     </div>

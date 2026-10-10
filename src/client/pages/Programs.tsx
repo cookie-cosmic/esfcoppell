@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useApi, usePageTitle, useReveal } from '../lib/hooks';
+import { asArray, useApi, usePageTitle, useReveal } from '../lib/hooks';
 import { fmtDate, fmtDateTime, fmtHours } from '../lib/format';
 import { EmptyState, ErrorNote, Loading, SmartImage } from '../components/ui';
 import { IconCalendar, IconChevron, IconClock, IconPin, IconUsers, IconMedal } from '../components/icons';
@@ -46,6 +46,9 @@ export default function Programs() {
   const uRef = useReveal<HTMLDivElement>();
   const pRef = useReveal<HTMLDivElement>();
   const loading = l1 || l2 || l3;
+  const activityList = asArray(activities);
+  const upcomingList = asArray(upcoming);
+  const pastList = asArray(past);
 
   return (
     <>
@@ -71,9 +74,9 @@ export default function Programs() {
           {loading ? <Loading /> : null}
           {e1 ? <ErrorNote message={e1} retry={r1} /> : null}
           <div className="grid grid-3 reveal in">
-            {(activities ?? []).map((a) => <ActivityCard key={a.id} a={a} />)}
+            {activityList.map((a) => <ActivityCard key={a.id} a={a} />)}
           </div>
-          {!(activities ?? []).length && !loading ? <EmptyState title="No active activities right now" body="Check back soon — new activities are published here by chapter admins." /> : null}
+          {!activityList.length && !loading ? <EmptyState title="No active activities right now" body="Check back soon — new activities are published here by chapter admins." /> : null}
         </div>
       </section>
 
@@ -87,7 +90,7 @@ export default function Programs() {
           </div>
           {e2 ? <ErrorNote message={e2} retry={r2} /> : null}
           <div className="grid grid-3 reveal in">
-            {(upcoming ?? []).map((ev) => (
+            {upcomingList.map((ev) => (
               <article className="card event-card" key={ev.id}>
                 <SmartImage className="thumb" src={ev.image_url} alt={ev.image_alt || ev.title} />
                 <div className="body">
@@ -111,7 +114,7 @@ export default function Programs() {
               </article>
             ))}
           </div>
-          {!(upcoming ?? []).length && !l2 ? <EmptyState glyph="🗓️" title="No upcoming events published" body="When the chapter publishes events, they’ll appear here in date order." /> : null}
+          {!upcomingList.length && !l2 ? <EmptyState glyph="🗓️" title="No upcoming events published" body="When the chapter publishes events, they’ll appear here in date order." /> : null}
         </div>
       </section>
 
@@ -125,7 +128,7 @@ export default function Programs() {
           </div>
           {e3 ? <ErrorNote message={e3} retry={r3} /> : null}
           <div className="stack reveal in" style={{ gap: 22 }}>
-            {(past ?? []).map((ev) => (
+            {pastList.map((ev) => (
               <article className="card" key={ev.id} style={{ overflow: 'hidden' }}>
                 <div className="split" style={{ gap: 0 }}>
                   <SmartImage src={ev.image_url} alt={ev.image_alt || ev.title} style={{ width: '100%', height: '100%', minHeight: 220, objectFit: 'cover' }} />
@@ -158,7 +161,7 @@ export default function Programs() {
               </article>
             ))}
           </div>
-          {!(past ?? []).length && !l3 ? <EmptyState glyph="🏆" title="No completed events yet" body="After events wrap up, admins archive them here with photos and results." /> : null}
+          {!pastList.length && !l3 ? <EmptyState glyph="🏆" title="No completed events yet" body="After events wrap up, admins archive them here with photos and results." /> : null}
         </div>
       </section>
     </>
