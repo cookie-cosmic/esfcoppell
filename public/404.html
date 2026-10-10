@@ -1,0 +1,17 @@
+<!doctype html>
+<!-- GitHub Pages SPA fallback: redirects unknown paths to the app while preserving the route. -->
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Redirecting…</title>
+    <script>
+      var l = window.location;
+      var target = '/' + (l.pathname + l.search + l.hash).replace(/^\/+/, '');
+      sessionStorage.setItem('spa-redirect', target);
+      l.replace('/');
+    </script>
+  </head>
+  <body>
+    Redirecting…
+  </body>
+</html>

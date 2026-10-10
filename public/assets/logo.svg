@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="Endless Smiles Foundation logo">
+  <g>
+    <circle cx="46" cy="22" r="8" fill="#4BA3E3"/>
+    <circle cx="74" cy="22" r="8" fill="#4BA3E3"/>
+    <path d="M33 37 Q60 66 87 37" stroke="#4BA3E3" stroke-width="11" fill="none" stroke-linecap="round"/>
+  </g>
+  <g transform="rotate(120 60 60)">
+    <circle cx="46" cy="22" r="8" fill="#EF0A71"/>
+    <circle cx="74" cy="22" r="8" fill="#EF0A71"/>
+    <path d="M33 37 Q60 66 87 37" stroke="#EF0A71" stroke-width="11" fill="none" stroke-linecap="round"/>
+  </g>
+  <g transform="rotate(240 60 60)">
+    <circle cx="46" cy="22" r="8" fill="#F0822F"/>
+    <circle cx="74" cy="22" r="8" fill="#F0822F"/>
+    <path d="M33 37 Q60 66 87 37" stroke="#F0822F" stroke-width="11" fill="none" stroke-linecap="round"/>
+  </g>
+</svg>

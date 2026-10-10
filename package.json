@@ -1,0 +1,47 @@
+{
+  "name": "endless-smiles-coppell",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Endless Smiles Foundation — Coppell Chapter website & management system",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev:server": "tsx watch src/server/index.ts",
+    "dev:client": "vite",
+    "build": "vite build && tsc -p tsconfig.server.json",
+    "build:client": "vite build",
+    "build:server": "tsc -p tsconfig.server.json",
+    "start": "cross-env NODE_ENV=production node dist-server/server/index.js",
+    "serve": "node dist-server/server/index.js",
+    "create-admin": "node dist-server/server/cli/create-admin.js",
+    "seed:sample": "node dist-server/server/cli/seed-sample.js",
+    "reset:clean": "node dist-server/server/cli/reset-clean.js",
+    "test": "npm run build:server && node --test dist-server/server/__tests__/",
+    "lint": "tsc -p tsconfig.server.json --noEmit && tsc -p tsconfig.client.json --noEmit"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.10.0",
+    "cookie-parser": "^1.4.7",
+    "express": "^4.21.2",
+    "multer": "^2.0.1"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/cookie-parser": "^1.4.9",
+    "@types/express": "^4.17.23",
+    "@types/multer": "^1.4.13",
+    "@types/node": "^20.19.0",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "cross-env": "^7.0.3",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.30.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.11"
+  }
+}
