@@ -3,13 +3,14 @@ services:
     name: esfcoppell-api
     runtime: node
     plan: free
-    nodeVersion: 20.19.0
     buildCommand: npm ci && npm run build
     startCommand: npm run serve
     healthCheckPath: /api/health
     envVars:
       - key: NODE_ENV
         value: production
+      - key: NODE_VERSION
+        value: 20.19.0
       - key: COOKIE_SECURE
         value: "false"
       - key: CLIENT_ORIGIN
