@@ -56,7 +56,7 @@ export default function AdminLogin({ session, setSession }: { session: SessionSt
           {busy ? <span className="spinner" /> : null} Sign in
         </button>
         <p className="tiny muted" style={{ textAlign: 'center', marginTop: 14 }}>
-          Logins are rate-limited and audited. <Link to="/">← Back to the public site</Link>
+          Logins are audited. <Link to="/">← Back to the public site</Link>
         </p>
       </form>
     </div>

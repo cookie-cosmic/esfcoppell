@@ -23,7 +23,12 @@ const listeners = new Set<() => void>();
 function load(): AdminPrefs {
   try {
     const raw = localStorage.getItem(KEY);
-    return raw ? { ...DEFAULTS, ...JSON.parse(raw) } : { ...DEFAULTS };
+    const parsed = raw ? JSON.parse(raw) : {};
+    return {
+      ...DEFAULTS,
+      ...parsed,
+      hiddenCards: Array.isArray(parsed.hiddenCards) ? parsed.hiddenCards : DEFAULTS.hiddenCards,
+    };
   } catch {
     return { ...DEFAULTS };
   }
