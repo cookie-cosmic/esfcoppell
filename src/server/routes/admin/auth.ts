@@ -3,7 +3,6 @@ import { db, nowIso, newId, audit } from '../../db.js';
 import { ah, ApiError } from '../../lib/http.js';
 import { hashPassword, verifyPassword } from '../../lib/passwords.js';
 import { createSession, destroySession, requireAdmin, requireRole, sessionCookieOptions, sessionTokensFrom, SESSION_COOKIE } from '../../lib/auth.js';
-import { rateLimit, MINUTE } from '../../lib/ratelimit.js';
 
 export const adminAuthRouter = Router();
 
@@ -48,8 +47,6 @@ adminAuthRouter.post(
   '/login',
   ah((req, res) => {
     const password = String(req.body?.password ?? '');
-    const rl = rateLimit(`login:${req.ip}`, 8, 10 * MINUTE);
-    if (!rl.ok) throw new ApiError(429, `Too many login attempts. Try again in ${Math.ceil(rl.retryInSec / 60)} minute(s).`);
     if (!password) throw new ApiError(401, 'Password required.');
     const rows = db.prepare('SELECT * FROM admin_users WHERE active = 1 ORDER BY created_at').all() as {
       id: string; email: string; password_hash: string; role: string; name: string;
