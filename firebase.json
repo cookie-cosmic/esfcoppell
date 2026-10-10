@@ -8,20 +8,6 @@
     ],
     "rewrites": [
       {
-        "source": "/api/**",
-        "run": {
-          "serviceId": "esfcoppell-api",
-          "region": "us-central1"
-        }
-      },
-      {
-        "source": "/uploads/**",
-        "run": {
-          "serviceId": "esfcoppell-api",
-          "region": "us-central1"
-        }
-      },
-      {
         "source": "**",
         "destination": "/index.html"
       }

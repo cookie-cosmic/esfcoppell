@@ -51,11 +51,31 @@ code; staff = claims-based roles). To adopt it:
 
 Until that swap is made, the Express/SQLite backend in this repo is the supported path.
 
-## Option D — Firebase Hosting + Cloud Run
+## Option D — Firebase Hosting + Render free API
 
-`firebase.json` configures Firebase Hosting for the built SPA and routes `/api/**` and
-`/uploads/**` to a Cloud Run service named `esfcoppell-api` in `us-central1`. The
-included `Dockerfile` builds the Express server and client together:
+Firebase Hosting remains the static frontend and Render runs the Express API on its free
+plan. The [render.yaml](../render.yaml) Blueprint creates the service configuration.
+Because Render's free filesystem is ephemeral, this is appropriate for testing/demo use;
+use durable storage before keeping real student records or uploads.
+
+1. In Render, choose **New → Blueprint**, connect the GitHub repository, and apply
+   `render.yaml`.
+2. Build the client with the Render service URL:
+
+   ```bash
+   $env:VITE_API_BASE = 'https://esfcoppell-api.onrender.com'
+   npm run build:client
+   firebase use esfcoppell
+   firebase deploy --only hosting
+   ```
+
+3. Open the Render service shell and run `npm run create-admin` once to create the owner.
+4. Confirm `GET https://esfcoppell-api.onrender.com/api/health` responds before signing in.
+
+The API explicitly allows requests from `https://esfcoppell.web.app` and uses bearer
+session tokens for cross-origin admin requests.
+
+## Option E — Firebase Hosting + Cloud Run
 
 ```bash
 gcloud run deploy esfcoppell-api --source . --region us-central1 --allow-unauthenticated

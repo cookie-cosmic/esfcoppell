@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { api, ApiError } from '../../lib/api';
+import { api, ApiError, staffToken } from '../../lib/api';
 import { useApi } from '../../lib/hooks';
 import { LEVEL_LABEL, STATUS_LABEL, fmtDate, fmtHours, medalProgress } from '../../lib/format';
 import { ConfirmDialog, EmptyState, ErrorNote, Field, Loading, Modal, ProgressBar, useToast } from '../../components/ui';
@@ -21,7 +21,10 @@ export default function Volunteers() {
   const toast = useToast();
 
   const exportCsv = async () => {
-    const res = await fetch('/api/admin/students/export.csv', { credentials: 'same-origin' });
+    const base = (import.meta as any).env?.VITE_API_BASE ?? '';
+    const res = await fetch(`${base}/api/admin/students/export.csv`, {
+      headers: staffToken.get() ? { Authorization: `Bearer ${staffToken.get()}` } : undefined,
+    });
     if (!res.ok) return toast('error', 'Export failed.');
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);

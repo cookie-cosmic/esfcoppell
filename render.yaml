@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: esfcoppell-api
+    runtime: node
+    plan: free
+    buildCommand: npm ci && npm run build
+    startCommand: npm run serve
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: COOKIE_SECURE
+        value: "false"
+      - key: CLIENT_ORIGIN
+        value: https://esfcoppell.web.app
+      - key: MEMBER_COOKIE_SECRET
+        generateValue: true
