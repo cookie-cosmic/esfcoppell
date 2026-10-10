@@ -26,9 +26,11 @@ export default function Home() {
   if (loading) return <div className="container section"><Loading label="Loading the chapter homepage…" /></div>;
   if (error || !content) return <div className="container section"><ErrorNote message={error ?? 'No content'} retry={reload} /></div>;
 
-  const sections: string[] = content.sections?.length ? content.sections : ['hero', 'featured', 'mission', 'stats', 'goals', 'programs', 'gallery', 'join'];
-  const featuredPrograms = (programs ?? []).filter((p) => p.featured_on_home).slice(0, 3);
-  const upcoming = (events ?? []).slice(0, 3);
+  const sections: string[] = Array.isArray(content.sections) && content.sections.length
+    ? content.sections
+    : ['hero', 'featured', 'mission', 'stats', 'goals', 'programs', 'gallery', 'join'];
+  const featuredPrograms = (Array.isArray(programs) ? programs : []).filter((p) => p.featured_on_home).slice(0, 3);
+  const upcoming = (Array.isArray(events) ? events : []).slice(0, 3);
 
   const render: Record<string, () => JSX.Element | null> = {
     hero: () => (
