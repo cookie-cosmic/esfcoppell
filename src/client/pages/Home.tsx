@@ -14,7 +14,7 @@ const GOAL_ICONS: Record<string, React.ComponentType<any>> = {
 
 export default function Home() {
   usePageTitle('Home');
-  const { data: content, loading, error, reload } = useApi<any>('/api/site/content');
+  const { data: rawContent, loading, error, reload } = useApi<any>('/api/site/content');
   const { data: programs } = useApi<any[]>('/api/activities');
   const { data: events } = useApi<any[]>('/api/events?scope=upcoming');
   const heroRef = useReveal<HTMLDivElement>();
@@ -24,8 +24,15 @@ export default function Home() {
   const galleryRef = useReveal<HTMLDivElement>();
 
   if (loading) return <div className="container section"><Loading label="Loading the chapter homepage…" /></div>;
-  if (error || !content) return <div className="container section"><ErrorNote message={error ?? 'No content'} retry={reload} /></div>;
+  if (error || !rawContent) return <div className="container section"><ErrorNote message={error ?? 'No content'} retry={reload} /></div>;
 
+  const content = {
+    ...rawContent,
+    hero: rawContent.hero ?? {},
+    mission: rawContent.mission ?? {},
+    titles: rawContent.titles ?? {},
+    join: rawContent.join ?? {},
+  };
   const sections: string[] = Array.isArray(content.sections) && content.sections.length
     ? content.sections
     : ['hero', 'featured', 'mission', 'stats', 'goals', 'programs', 'gallery', 'join'];
