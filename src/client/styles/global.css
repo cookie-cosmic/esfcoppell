@@ -190,6 +190,8 @@ p { margin: 0 0 1em; }
 
 .event-card, .activity-card { overflow: hidden; display: flex; flex-direction: column; }
 .event-card .thumb, .activity-card .thumb { aspect-ratio: 16/9; object-fit: cover; width: 100%; background: #eee; }
+.event-card .event-banner-compact { aspect-ratio: 3/1; }
+.event-card .event-banner-tall { aspect-ratio: 4/3; }
 .event-card .body, .activity-card .body { padding: 20px 22px 22px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
 .event-meta { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; color: var(--ink-2); font-size: 0.84rem; font-weight: 600; }
 .event-meta .pill { background: var(--crimson-soft); color: var(--crimson-dark); padding: 3px 10px; border-radius: 999px; font-size: 0.75rem; font-weight: 700; }
@@ -708,7 +710,7 @@ a, button, input, select, textarea, label, .badge, .progress, .tabs button, .cod
 .seat {
   --accent: var(--crimson);
   position: relative; display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center;
-  padding: 58px 22px 24px; border-radius: 22px;
+  padding: 70px 28px 30px; border-radius: 22px; min-height: 300px;
   background: rgba(255, 255, 255, 0.86); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
   border: 1px solid rgba(255, 255, 255, 0.95);
   box-shadow: 0 18px 38px -22px rgba(23, 24, 28, 0.32), 0 1px 0 #fff inset;
@@ -718,16 +720,16 @@ a, button, input, select, textarea, label, .badge, .progress, .tabs button, .cod
 .seat-lead { padding-top: 66px; }
 .seat-avatar {
   position: absolute; top: -36px; left: 50%; transform: translateX(-50%);
-  width: 80px; height: 80px; border-radius: 50%; padding: 3px; background: var(--accent);
+  width: 104px; height: 104px; border-radius: 50%; padding: 3px; background: var(--accent);
   box-shadow: 0 10px 22px -8px var(--accent);
 }
-.seat-lead .seat-avatar { width: 96px; height: 96px; top: -44px; }
+.seat-lead .seat-avatar { width: 120px; height: 120px; top: -54px; }
 .seat-photo { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; border: 3px solid #fff; }
 .seat-initials { width: 100%; height: 100%; border-radius: 50%; border: 3px solid #fff; background: #fff; color: var(--accent); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 1.3rem; }
 .seat-head { display: flex; align-items: center; gap: 8px; justify-content: center; flex-wrap: wrap; }
 .seat-num { background: var(--accent); color: #fff; font-weight: 800; font-size: 0.76rem; padding: 3px 9px; border-radius: 999px; letter-spacing: 0.04em; font-variant-numeric: tabular-nums; }
-.seat h3 { font-family: var(--serif); font-size: 1.12rem; font-weight: 700; margin: 0; letter-spacing: -0.01em; }
-.seat-name { margin: 0; font-weight: 600; color: var(--ink-2); font-size: 0.94rem; }
+.seat h3 { font-family: var(--serif); font-size: 1.02rem; font-weight: 700; margin: 0; letter-spacing: -0.01em; }
+.seat-name { margin: 0; font-weight: 800; color: var(--ink-2); font-size: 1.18rem; }
 .seat-quote { margin: 6px 0 2px; font-family: var(--serif); font-style: italic; color: var(--ink-2); font-size: 0.92rem; line-height: 1.45; max-width: 240px; }
 .seat-mail { font-size: 0.78rem; color: var(--ink-3); display: inline-flex; gap: 6px; align-items: center; max-width: 100%; }
 .seat-mail span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

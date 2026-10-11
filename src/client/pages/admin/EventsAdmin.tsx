@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { api, ApiError } from '../../lib/api';
+import { api, ApiError, assetUrl } from '../../lib/api';
 import { useApi } from '../../lib/hooks';
 import { fmtDateTime, fmtHours } from '../../lib/format';
 import { ConfirmDialog, EmptyState, ErrorNote, Field, Loading, Modal, SmartImage, Tabs, useToast } from '../../components/ui';
@@ -9,7 +9,7 @@ const STATUS_BADGE: Record<string, string> = { draft: 'gray', published: 'approv
 
 const blankEvent = {
   title: '', description: '', starts_at: '', ends_at: '', location: '', online_details: '',
-  registration_url: '', category: 'General', status: 'draft', image_id: '', attendance: '', achievements: '', featured_on_home: false,
+  registration_url: '', category: 'General', status: 'draft', image_id: '', attendance: '', achievements: '', featured_on_home: false, banner_size: 'standard',
 };
 
 export default function EventsAdmin() {
@@ -71,7 +71,7 @@ export default function EventsAdmin() {
           <div className="stack">
             {(tab === 'upcoming' ? upcoming : past).map((ev) => (
               <div className="card card-pad row" key={ev.id} style={{ gap: 16 }}>
-                <SmartImage src={ev.image_url ?? media?.find((m) => m.id === ev.image_id)?.url ?? `/uploads/${media?.find((m) => m.id === ev.image_id)?.stored_name}`} alt={ev.title} style={{ width: 92, height: 66, objectFit: 'cover', borderRadius: 10 }} />
+                <SmartImage src={assetUrl(ev.image_url ?? media?.find((m) => m.id === ev.image_id)?.url)} alt={ev.title} style={{ width: 92, height: 66, objectFit: 'cover', borderRadius: 10 }} />
                 <div style={{ flex: 1, minWidth: 200 }}>
                   <strong>{ev.title}</strong>
                   <div className="tiny muted">{fmtDateTime(ev.starts_at)} · {ev.category} · {ev.location ?? ev.online_details ?? '—'}</div>
@@ -92,7 +92,7 @@ export default function EventsAdmin() {
         <div className="stack">
           {(activities ?? []).map((a) => (
             <div className="card card-pad row" key={a.id} style={{ gap: 16 }}>
-              <SmartImage src={`/uploads/${media?.find((m) => m.id === a.image_id)?.stored_name ?? ''}`} alt={a.title} style={{ width: 92, height: 66, objectFit: 'cover', borderRadius: 10 }} />
+              <SmartImage src={assetUrl(media?.find((m) => m.id === a.image_id)?.url)} alt={a.title} style={{ width: 92, height: 66, objectFit: 'cover', borderRadius: 10 }} />
               <div style={{ flex: 1, minWidth: 200 }}>
                 <strong>{a.title}</strong>
                 <div className="tiny muted">{a.category} · {a.mode} · limit {a.hour_limit ?? '—'}h · pos {a.position}</div>
@@ -200,6 +200,11 @@ function EditorModal({ kind, initial, categories, media, onClose, onSaved }: { k
             {media.map((m) => <option key={m.id} value={m.id}>{m.alt || m.filename}</option>)}
           </select>
         </Field>
+        {kind === 'event' ? <Field label="Event banner size">
+          <select className="input" value={form.banner_size ?? 'standard'} onChange={set('banner_size')}>
+            <option value="compact">Compact</option><option value="standard">Standard</option><option value="tall">Tall</option>
+          </select>
+        </Field> : null}
         {kind === 'event' ? (
           <label className="row small" style={{ gap: 8 }}><input type="checkbox" checked={!!form.featured_on_home} onChange={set('featured_on_home')} /> Featured on homepage</label>
         ) : (

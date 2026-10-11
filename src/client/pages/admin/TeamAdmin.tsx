@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { api, ApiError } from '../../lib/api';
+import { api, ApiError, assetUrl } from '../../lib/api';
 import { useApi } from '../../lib/hooks';
 import { colorFor, initials } from '../../lib/format';
 import { ConfirmDialog, ErrorNote, Field, Loading, Modal, SmartImage, useToast } from '../../components/ui';
@@ -53,7 +53,7 @@ export default function TeamAdmin() {
             </div>
             {m.photo_id ? (
               <button className="icon-btn" title="Change profile photo" onClick={() => setPhotoTarget(m)}>
-                <SmartImage src={`/uploads/${media?.find((x) => x.id === m.photo_id)?.stored_name ?? ''}`} alt={m.name || m.position_title} style={{ width: 56, height: 56, borderRadius: '50%', objectFit: 'cover', objectPosition: m.photo_position ?? '50% 50%' }} />
+                <SmartImage src={assetUrl(media?.find((x) => x.id === m.photo_id)?.url)} alt={m.name || m.position_title} style={{ width: 56, height: 56, borderRadius: '50%', objectFit: 'cover', objectPosition: m.photo_position ?? '50% 50%' }} />
               </button>
             ) : (
               <button className="avatar-initials" title="Add profile photo" onClick={() => setPhotoTarget(m)} style={{ width: 56, height: 56, fontSize: '1.1rem', background: m.vacant ? '#e6e1dd' : colorFor(m.name || m.position_title), border: 0, cursor: 'pointer' }}>

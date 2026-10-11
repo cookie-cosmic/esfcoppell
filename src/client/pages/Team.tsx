@@ -1,4 +1,5 @@
 import { asArray, useApi, usePageTitle, useReveal } from '../lib/hooks';
+import { assetUrl } from '../lib/api';
 import { initials } from '../lib/format';
 import { ErrorNote, Loading, SmartImage } from '../components/ui';
 import { IconMail, IconArrow, SmileMark } from '../components/icons';
@@ -18,7 +19,6 @@ function Seat({ m, index, lead }: { m: any; index: number; lead?: boolean }) {
         <div className="seat-avatar seat-avatar-open" aria-hidden="true">?</div>
         <p className="seat-name">Position open</p>
         <h3 className="seat-role">{m.position}</h3>
-        <span className="seat-tag">Seat {num}</span>
         <p className="seat-bio">This seat is open. Ask any officer how to run for it next term.</p>
       </article>
     );
@@ -28,14 +28,13 @@ function Seat({ m, index, lead }: { m: any; index: number; lead?: boolean }) {
     <article className={`seat ${lead ? 'seat-lead' : ''}`} style={style}>
       <div className="seat-avatar">
         {m.photo_url ? (
-          <SmartImage className="seat-photo" src={m.photo_url} alt={m.photo_alt || m.name} style={{ objectPosition: m.photo_position ?? '50% 50%' }} />
+          <SmartImage className="seat-photo" src={assetUrl(m.photo_url)} alt={m.photo_alt || m.name} style={{ objectPosition: m.photo_position ?? '50% 50%' }} />
         ) : (
           <div className="seat-initials" aria-hidden="true">{initials(m.name || m.position)}</div>
         )}
       </div>
       <p className="seat-name">{m.name}</p>
       <h3 className="seat-role">{m.position}</h3>
-      <span className="seat-tag">Seat {num}</span>
       {m.email ? (
         <span className="seat-mail">
           <IconMail width={13} height={13} /> <span>{m.email}</span>

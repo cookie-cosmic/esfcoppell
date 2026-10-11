@@ -255,6 +255,10 @@ const teamColumns = db.prepare('PRAGMA table_info(team_members)').all() as { nam
 if (!teamColumns.some((column) => column.name === 'photo_position')) {
   db.exec("ALTER TABLE team_members ADD COLUMN photo_position TEXT NOT NULL DEFAULT '50% 50%'");
 }
+const eventColumns = db.prepare('PRAGMA table_info(events)').all() as { name: string }[];
+if (!eventColumns.some((column) => column.name === 'banner_size')) {
+  db.exec("ALTER TABLE events ADD COLUMN banner_size TEXT NOT NULL DEFAULT 'standard'");
+}
 
 /* ------------------------- settings helpers ------------------------- */
 

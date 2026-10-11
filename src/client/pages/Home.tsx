@@ -3,6 +3,7 @@ import { useApi, usePageTitle, useReveal } from '../lib/hooks';
 import { fmtDate, fmtDateTime } from '../lib/format';
 import { CountUp, EmptyState, ErrorNote, Loading, Marquee, SmartImage } from '../components/ui';
 import { IconArrow, IconCalendar, IconHeart, IconHands, IconStar, IconMedal, IconSparkle } from '../components/icons';
+import { assetUrl } from '../lib/api';
 
 const GOAL_ICONS: Record<string, React.ComponentType<any>> = {
   heart: IconHeart,
@@ -55,7 +56,7 @@ export default function Home() {
             </div>
           </div>
           <div className="hero-art">
-            <SmartImage src={content.hero.image_url} alt={content.hero.image_alt || 'Coppell chapter volunteers'} style={{ aspectRatio: '4/3', borderRadius: 'var(--r-xl)' }} />
+            <SmartImage src={assetUrl(content.hero.image_url)} alt={content.hero.image_alt || 'Coppell chapter volunteers'} style={{ aspectRatio: '4/3', borderRadius: 'var(--r-xl)' }} />
             <div className="hero-chip"><span className="dot" aria-hidden="true" /> Student-led · Coppell, TX</div>
           </div>
         </div>
@@ -145,7 +146,7 @@ export default function Home() {
           <div className="grid grid-3 reveal in">
             {featuredPrograms.map((p: any) => (
               <article className="card activity-card" key={p.id}>
-                <SmartImage className="thumb" src={p.image_url} alt={p.image_alt || p.title} />
+                <SmartImage className="thumb" src={assetUrl(p.image_url)} alt={p.image_alt || p.title} />
                 <div className="body">
                   <div className="event-meta">
                     <span className="pill">{p.category}</span>
@@ -159,7 +160,7 @@ export default function Home() {
             ))}
             {upcoming.slice(0, 3 - featuredPrograms.length).map((e: any) => (
               <article className="card event-card" key={e.id}>
-                <SmartImage className="thumb" src={e.image_url} alt={e.image_alt || e.title} />
+                <SmartImage className="thumb" src={assetUrl(e.image_url)} alt={e.image_alt || e.title} />
                 <div className="body">
                   <div className="event-meta"><span className="pill gold">Upcoming event</span><span><IconCalendar width={14} height={14} style={{ verticalAlign: '-2px' }} /> {fmtDate(e.starts_at)}</span></div>
                   <h3>{e.title}</h3>

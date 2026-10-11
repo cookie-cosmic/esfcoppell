@@ -12,6 +12,11 @@ export class ApiError extends Error {
 export const SESSION_EXPIRED_EVENT = 'es:session-expired';
 
 const BASE = (import.meta as any).env?.VITE_API_BASE ?? '';
+export const assetUrl = (path: string | null | undefined) => {
+  if (!path) return undefined;
+  if (/^https?:\/\//.test(path)) return path;
+  return `${BASE}${path}`;
+};
 const TOKEN_KEY = 'es-staff-token';
 let memoryToken: string | null = null;
 

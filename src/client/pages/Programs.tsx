@@ -4,12 +4,13 @@ import { asArray, useApi, usePageTitle, useReveal } from '../lib/hooks';
 import { fmtDate, fmtDateTime, fmtHours } from '../lib/format';
 import { EmptyState, ErrorNote, Loading, SmartImage } from '../components/ui';
 import { IconCalendar, IconChevron, IconClock, IconPin, IconUsers, IconMedal } from '../components/icons';
+import { assetUrl } from '../lib/api';
 
 function ActivityCard({ a }: { a: any }) {
   const [open, setOpen] = useState(false);
   return (
     <article className="card activity-card">
-      <SmartImage className="thumb" src={a.image_url} alt={a.image_alt || a.title} />
+      <SmartImage className="thumb" src={assetUrl(a.image_url)} alt={a.image_alt || a.title} />
       <div className="body">
         <div className="event-meta">
           <span className="pill">{a.category}</span>
@@ -92,7 +93,7 @@ export default function Programs() {
           <div className="grid grid-3 reveal in">
             {upcomingList.map((ev) => (
               <article className="card event-card" key={ev.id}>
-                <SmartImage className="thumb" src={ev.image_url} alt={ev.image_alt || ev.title} />
+                <SmartImage className={`thumb event-banner-${ev.banner_size ?? 'standard'}`} src={assetUrl(ev.image_url)} alt={ev.image_alt || ev.title} />
                 <div className="body">
                   <div className="event-meta">
                     <span className={`pill ${ev.status === 'canceled' ? 'gray' : 'gold'}`}>{ev.status === 'canceled' ? 'Canceled' : ev.category}</span>
@@ -131,7 +132,7 @@ export default function Programs() {
             {pastList.map((ev) => (
               <article className="card" key={ev.id} style={{ overflow: 'hidden' }}>
                 <div className="split" style={{ gap: 0 }}>
-                  <SmartImage src={ev.image_url} alt={ev.image_alt || ev.title} style={{ width: '100%', height: '100%', minHeight: 220, objectFit: 'cover' }} />
+                  <SmartImage src={assetUrl(ev.image_url)} alt={ev.image_alt || ev.title} style={{ width: '100%', height: '100%', minHeight: 220, objectFit: 'cover' }} />
                   <div className="card-pad">
                     <div className="event-meta">
                       <span className="pill green">Completed</span>

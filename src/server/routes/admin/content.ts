@@ -30,6 +30,8 @@ contentRouter.get(
 function eventPayload(body: Record<string, unknown>, existing?: any) {
   const errors = requireFields(body, ['title']);
   const status = String(body.status ?? existing?.status ?? 'draft');
+  const bannerSize = String(body.banner_size ?? existing?.banner_size ?? 'standard');
+  if (!['compact', 'standard', 'tall'].includes(bannerSize)) errors.banner_size = 'Invalid banner size.';
   if (!['draft', 'published', 'canceled', 'completed', 'archived'].includes(status)) errors.status = 'Invalid status.';
   const startsAt = body.starts_at ? String(body.starts_at) : existing?.starts_at ?? null;
   if (body.starts_at !== undefined && body.starts_at && Number.isNaN(Date.parse(String(body.starts_at)))) errors.starts_at = 'Invalid date-time.';
@@ -48,6 +50,7 @@ function eventPayload(body: Record<string, unknown>, existing?: any) {
     attendance: body.attendance !== undefined ? validReal(body.attendance, 0, 100000) : existing?.attendance ?? null,
     achievements: str(body.achievements ?? existing?.achievements ?? '', 2000) || null,
     featured_on_home: body.featured_on_home !== undefined ? (body.featured_on_home ? 1 : 0) : existing?.featured_on_home ?? 0,
+    banner_size: bannerSize,
   };
 }
 
@@ -59,9 +62,9 @@ contentRouter.post(
     const id = newId('evt');
     const ts = nowIso();
     db.prepare(
-      `INSERT INTO events (id, title, description, starts_at, ends_at, location, online_details, registration_url, category, status, image_id, attendance, achievements, featured_on_home, created_at, updated_at)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
-    ).run(id, payload.title, payload.description, payload.starts_at, payload.ends_at, payload.location, payload.online_details, payload.registration_url, payload.category, payload.status, payload.image_id, payload.attendance, payload.achievements, payload.featured_on_home, ts, ts);
+      `INSERT INTO events (id, title, description, starts_at, ends_at, location, online_details, registration_url, category, status, image_id, attendance, achievements, featured_on_home, banner_size, created_at, updated_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+    ).run(id, payload.title, payload.description, payload.starts_at, payload.ends_at, payload.location, payload.online_details, payload.registration_url, payload.category, payload.status, payload.image_id, payload.attendance, payload.achievements, payload.featured_on_home, payload.banner_size, ts, ts);
     audit(admin.id, admin.name, 'event.create', 'event', id, { title: payload.title, status: payload.status });
     res.status(201);
     return { id };
@@ -76,8 +79,8 @@ contentRouter.patch(
     if (!existing) throw new ApiError(404, 'Event not found.');
     const payload = eventPayload(req.body ?? {}, existing);
     db.prepare(
-      `UPDATE events SET title=?, description=?, starts_at=?, ends_at=?, location=?, online_details=?, registration_url=?, category=?, status=?, image_id=?, attendance=?, achievements=?, featured_on_home=?, updated_at=? WHERE id=?`
-    ).run(payload.title, payload.description, payload.starts_at, payload.ends_at, payload.location, payload.online_details, payload.registration_url, payload.category, payload.status, payload.image_id, payload.attendance, payload.achievements, payload.featured_on_home, nowIso(), existing.id);
+      `UPDATE events SET title=?, description=?, starts_at=?, ends_at=?, location=?, online_details=?, registration_url=?, category=?, status=?, image_id=?, attendance=?, achievements=?, featured_on_home=?, banner_size=?, updated_at=? WHERE id=?`
+    ).run(payload.title, payload.description, payload.starts_at, payload.ends_at, payload.location, payload.online_details, payload.registration_url, payload.category, payload.status, payload.image_id, payload.attendance, payload.achievements, payload.featured_on_home, payload.banner_size, nowIso(), existing.id);
     audit(admin.id, admin.name, 'event.update', 'event', existing.id, { status: payload.status });
     return { ok: true };
   })
