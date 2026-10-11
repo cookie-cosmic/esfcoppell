@@ -2,7 +2,7 @@ services:
   - type: web
     name: esfcoppell-api
     runtime: node
-    plan: free
+    plan: starter
     buildCommand: npm ci --include=dev && npm run build
     startCommand: npm run serve
     healthCheckPath: /api/health
@@ -12,8 +12,14 @@ services:
       - key: NODE_VERSION
         value: 20.19.0
       - key: COOKIE_SECURE
-        value: "false"
+        value: "true"
+      - key: DATA_DIR
+        value: /var/data/endless-smiles
       - key: CLIENT_ORIGIN
         value: https://esfcoppell.web.app
       - key: MEMBER_COOKIE_SECRET
         generateValue: true
+    disk:
+      name: endless-smiles-data
+      mountPath: /var/data
+      sizeGB: 1

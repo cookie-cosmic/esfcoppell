@@ -27,9 +27,15 @@ npm run build            # builds client (dist/) + server (dist-server/)
 # one-time database setup (development/demo):
 npm run seed:sample      # SAMPLE data only — refuses to run over real student records
 npm run create-admin     # creates the initial administrator (password prompted)
+npm run reset-admin-password -- --email you@example.org --password-from-stdin # resets an existing account
 
 npm run serve            # serves API + built site on http://localhost:8080
 ```
+
+Set the Render environment variable `ADMIN_PIN` to the six-digit keypad PIN. The
+production Render service uses a persistent disk for SQLite data. Do not deploy the
+API without persistent storage, or administrator accounts and password hashes can be lost
+when the service restarts or redeploys.
 
 Development with hot reload:
 

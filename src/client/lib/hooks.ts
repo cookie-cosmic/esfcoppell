@@ -18,7 +18,7 @@ export function useApi<T>(path: string | null, deps: unknown[] = []) {
       setLoading(false);
       return;
     }
-    setLoading(true);
+    setLoading(data === null);
     setError(null);
     api
       .get<T>(path)
@@ -34,6 +34,23 @@ export function useApi<T>(path: string | null, deps: unknown[] = []) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [path, reloadKey, ...deps]);
   const reload = useCallback(() => setReloadKey((k) => k + 1), []);
+
+  useEffect(() => {
+    if (!path) return;
+    const intervalMs = path.startsWith('/api/admin') ? 30_000 : 60_000;
+    const refresh = () => {
+      if (document.visibilityState === 'visible') reload();
+    };
+    const interval = window.setInterval(refresh, intervalMs);
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', refresh);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener('focus', refresh);
+      document.removeEventListener('visibilitychange', refresh);
+    };
+  }, [path, reload]);
+
   return { data, loading, error, reload, setData };
 }
 

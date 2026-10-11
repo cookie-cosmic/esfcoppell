@@ -16,6 +16,7 @@
     "start": "cross-env NODE_ENV=production node dist-server/server/index.js",
     "serve": "node dist-server/server/index.js",
     "create-admin": "node dist-server/server/cli/create-admin.js",
+    "reset-admin-password": "node dist-server/server/cli/reset-admin-password.js",
     "seed:sample": "node dist-server/server/cli/seed-sample.js",
     "reset:clean": "node dist-server/server/cli/reset-clean.js",
     "test": "npm run build:server && node --test dist-server/server/__tests__/",

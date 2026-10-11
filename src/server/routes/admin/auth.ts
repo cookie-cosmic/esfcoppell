@@ -46,23 +46,37 @@ adminAuthRouter.post(
 adminAuthRouter.post(
   '/login',
   ah((req, res) => {
-    const password = String(req.body?.password ?? '');
-    if (!password) throw new ApiError(401, 'Password required.');
+    const password = typeof req.body?.password === 'string' ? req.body.password : '';
+    const pin = typeof req.body?.pin === 'string' ? req.body.pin : '';
+    if (!password && !pin) throw new ApiError(401, 'Password or PIN required.');
     const rows = db.prepare('SELECT * FROM admin_users WHERE active = 1 ORDER BY created_at').all() as {
       id: string; email: string; password_hash: string; role: string; name: string;
     }[];
     let matched: typeof rows[number] | undefined;
-    for (const row of rows) {
-      if (verifyPassword(password, row.password_hash)) { matched = row; break; }
+    if (pin) {
+      if (!/^\d{6}$/.test(pin)) throw new ApiError(401, 'Invalid PIN.');
+      const configuredPin = process.env.ADMIN_PIN;
+      if (configuredPin && (configuredPin === pin || verifyPassword(pin, configuredPin))) matched = rows[0];
+    } else {
+      for (const row of rows) {
+        if (verifyPassword(password, row.password_hash)) { matched = row; break; }
+      }
     }
     if (!matched) {
       // constant-ish work to keep timing uniform
-      verifyPassword(password, 'scrypt$00$' + '0'.repeat(128));
-      throw new ApiError(401, 'Incorrect password.');
+      verifyPassword(pin || password, 'scrypt$00$' + '0'.repeat(128));
+      audit(null, 'Unknown sign-in', pin ? 'admin.pin_failed' : 'admin.password_failed', 'admin_session', null, {
+        ip: req.ip ?? null,
+        method: pin ? 'pin' : 'password',
+      });
+      throw new ApiError(401, pin ? 'Incorrect PIN.' : 'Incorrect password.');
     }
     const sessionId = createSession(matched.id, req);
     res.cookie(SESSION_COOKIE, sessionId, sessionCookieOptions());
-    audit(matched.id, matched.name, 'admin.login', 'admin_user', matched.id, {});
+    audit(matched.id, matched.name, pin ? 'admin.pin_login' : 'admin.login', 'admin_user', matched.id, {
+      ip: req.ip ?? null,
+      method: pin ? 'pin' : 'password',
+    });
     return { ok: true, token: sessionId, admin: { id: matched.id, email: matched.email, name: matched.name, role: matched.role } };
   })
 );

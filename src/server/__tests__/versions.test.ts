@@ -27,7 +27,7 @@ async function req(method: string, p: string, opts: { body?: unknown; token?: st
     method,
     headers: {
       ...(opts.body !== undefined ? { 'Content-Type': 'application/json' } : {}),
-      ...(opts.token ? { Authorization: `Bearer ${opts.token}` } : {}),
+      ...(opts.token ? { Authorization: 'Bearer ' + opts.token } : {}),
     },
     body: opts.body === undefined ? undefined : JSON.stringify(opts.body),
   });

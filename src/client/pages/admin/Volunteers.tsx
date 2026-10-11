@@ -23,7 +23,8 @@ export default function Volunteers() {
   const exportCsv = async () => {
     const base = (import.meta as any).env?.VITE_API_BASE ?? '';
     const res = await fetch(`${base}/api/admin/students/export.csv`, {
-      headers: staffToken.get() ? { Authorization: `Bearer ${staffToken.get()}` } : undefined,
+      credentials: 'include',
+      headers: staffToken.get() ? { Authorization: 'Bearer ' + staffToken.get() } : undefined,
     });
     if (!res.ok) return toast('error', 'Export failed.');
     const blob = await res.blob();

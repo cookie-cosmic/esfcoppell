@@ -12,14 +12,9 @@ export class ApiError extends Error {
 export const SESSION_EXPIRED_EVENT = 'es:session-expired';
 
 const BASE = (import.meta as any).env?.VITE_API_BASE ?? '';
-
-/**
- * Staff session token. Kept in this page's own storage as a fallback for when the
- * browser withholds cookies (embedded previews). The httpOnly cookie is still set too.
- */
 const TOKEN_KEY = 'es-staff-token';
-/** In-memory copy: works for the whole page visit even when storage is blocked. */
 let memoryToken: string | null = null;
+
 export const staffToken = {
   get: (): string | null => {
     if (memoryToken) return memoryToken;
@@ -35,7 +30,7 @@ export const staffToken = {
       if (t) localStorage.setItem(TOKEN_KEY, t);
       else localStorage.removeItem(TOKEN_KEY);
     } catch {
-      /* storage blocked: the in-memory copy still carries this visit */
+      // The in-memory copy still carries this visit when storage is blocked.
     }
   },
 };
@@ -45,12 +40,25 @@ async function request<T>(method: string, path: string, body?: unknown, isForm?:
   if (body && !isForm) headers['Content-Type'] = 'application/json';
   const token = path.startsWith('/api/admin') ? staffToken.get() : null;
   if (token) headers.Authorization = `Bearer ${token}`;
-  const res = await fetch(`${BASE}${path}`, {
-    method,
-    credentials: 'same-origin',
-    headers: Object.keys(headers).length ? headers : undefined,
-    body: body === undefined ? undefined : isForm ? (body as FormData) : JSON.stringify(body),
-  });
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), 20_000);
+  let res: Response;
+  try {
+    res = await fetch(`${BASE}${path}`, {
+      method,
+      credentials: 'include',
+      headers: Object.keys(headers).length ? headers : undefined,
+      body: body === undefined ? undefined : isForm ? (body as FormData) : JSON.stringify(body),
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new ApiError(408, 'The server took too long to respond. Please try again.');
+    }
+    throw error;
+  } finally {
+    window.clearTimeout(timeout);
+  }
   const text = await res.text();
   let data: any = null;
   try {
