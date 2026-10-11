@@ -51,7 +51,7 @@ export default function TeamAdmin() {
               <button className="icon-btn" aria-label="Move down" disabled={i === (data?.length ?? 0) - 1} onClick={() => move(m, 1)}><IconChevron style={{ transform: 'rotate(90deg)' }} /></button>
             </div>
             {m.photo_id ? (
-              <SmartImage src={`/uploads/${media?.find((x) => x.id === m.photo_id)?.stored_name ?? ''}`} alt={m.name || m.position_title} style={{ width: 56, height: 56, borderRadius: '50%', objectFit: 'cover' }} />
+              <SmartImage src={`/uploads/${media?.find((x) => x.id === m.photo_id)?.stored_name ?? ''}`} alt={m.name || m.position_title} style={{ width: 56, height: 56, borderRadius: '50%', objectFit: 'cover', objectPosition: m.photo_position ?? '50% 50%' }} />
             ) : (
               <div className="avatar-initials" style={{ width: 56, height: 56, fontSize: '1.1rem', background: m.vacant ? '#e6e1dd' : colorFor(m.name || m.position_title) }}>
                 {m.vacant ? '?' : initials(m.name || m.position_title)}
@@ -85,6 +85,7 @@ function TeamEditor({ initial, media, onClose, onSaved }: { initial: any; media:
     contact_label: initial.contact_label ?? 'Contact Me',
     contact_url: initial.contact_url ?? '',
     photo_id: initial.photo_id ?? '',
+    photo_position: initial.photo_position ?? '50% 50%',
     vacant: !!initial.vacant,
     is_public: initial.is_public === undefined ? true : !!initial.is_public,
   });
@@ -123,6 +124,12 @@ function TeamEditor({ initial, media, onClose, onSaved }: { initial: any; media:
           <select className="input" value={form.photo_id} onChange={set('photo_id')}>
             <option value="">No photo (initials shown)</option>
             {media.map((m) => <option key={m.id} value={m.id}>{m.alt || m.filename}</option>)}
+          </select>
+        </Field>
+        <Field label="Photo focus">
+          <select className="input" value={form.photo_position} onChange={set('photo_position')}>
+            <option value="50% 0%">Top</option><option value="50% 50%">Center</option><option value="50% 100%">Bottom</option>
+            <option value="0% 50%">Left</option><option value="100% 50%">Right</option>
           </select>
         </Field>
         <div className="row" style={{ gap: 18, alignSelf: 'end' }}>

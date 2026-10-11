@@ -15,6 +15,7 @@ const ADMIN_KEYS = new Set([
   'hour_rules',
   'directory_visibility',
   'branding',
+  'socials',
 ]);
 
 settingsRouter.get(
@@ -59,4 +60,3 @@ settingsRouter.put(
     return { ok: true, value };
   })
 );
-

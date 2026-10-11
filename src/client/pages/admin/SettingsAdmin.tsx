@@ -36,6 +36,16 @@ export default function SettingsAdmin({ session }: { session: SessionState }) {
       <div className="admin-topbar"><h1>Settings</h1><span className="spacer" /><span className="muted small">Changes apply immediately to the public site and validation rules.</span></div>
       <div className="grid grid-2">
         <section className="card card-pad">
+          <h3>Social links</h3>
+          <p className="muted small">Optional links shown in the public footer.</p>
+          <label className="row small" style={{ gap: 8 }}><input type="checkbox" checked={!!draft.socials?.enabled} onChange={(e) => setDraft((d: any) => ({ ...d, socials: { ...d.socials, enabled: e.target.checked } }))} /> Show social links</label>
+          <div className="form-grid" style={{ marginTop: 12 }}>
+            {(['instagram', 'tiktok', 'facebook', 'youtube', 'x'] as const).map((key) => <Field key={key} label={key}><input className="input" type="url" value={draft.socials?.[key] ?? ''} onChange={(e) => setDraft((d: any) => ({ ...d, socials: { ...d.socials, [key]: e.target.value } }))} placeholder="https://…" /></Field>)}
+          </div>
+          <button className="btn btn-sm btn-primary" style={{ marginTop: 12 }} onClick={() => save('socials')}>Save social links</button>
+        </section>
+
+        <section className="card card-pad">
           <h3>Medal requirements</h3>
           <p className="muted small">Hours needed per school level. Medal progress recalculates automatically.</p>
           {(draft.school_levels ?? []).map((l: any) => (

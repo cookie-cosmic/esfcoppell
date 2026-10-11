@@ -221,6 +221,7 @@ function teamPayload(body: Record<string, unknown>, existing?: any) {
     contact_label: str(body.contact_label ?? existing?.contact_label ?? '', 60) || null,
     contact_url: body.contact_url !== undefined ? validUrl(body.contact_url) : existing?.contact_url ?? null,
     photo_id: body.photo_id !== undefined ? String(body.photo_id) || null : existing?.photo_id ?? null,
+    photo_position: str(body.photo_position ?? existing?.photo_position ?? '50% 50%', 30),
     vacant: body.vacant !== undefined ? (body.vacant ? 1 : 0) : existing?.vacant ?? 0,
     is_public: body.is_public !== undefined ? (body.is_public ? 1 : 0) : existing?.is_public ?? 1,
   };
@@ -234,9 +235,9 @@ contentRouter.post(
     const id = newId('team');
     const ts = nowIso();
     db.prepare(
-      `INSERT INTO team_members (id, position_title, position_order, name, bio, email, contact_label, contact_url, photo_id, vacant, is_public, created_at, updated_at)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`
-    ).run(id, payload.position_title, payload.position_order, payload.name, payload.bio, payload.email, payload.contact_label, payload.contact_url, payload.photo_id, payload.vacant, payload.is_public, ts, ts);
+      `INSERT INTO team_members (id, position_title, position_order, name, bio, email, contact_label, contact_url, photo_id, photo_position, vacant, is_public, created_at, updated_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+    ).run(id, payload.position_title, payload.position_order, payload.name, payload.bio, payload.email, payload.contact_label, payload.contact_url, payload.photo_id, payload.photo_position, payload.vacant, payload.is_public, ts, ts);
     audit(admin.id, admin.name, 'team.create', 'team_member', id, { position: payload.position_title });
     res.status(201);
     return { id };
@@ -251,8 +252,8 @@ contentRouter.patch(
     if (!existing) throw new ApiError(404, 'Team member not found.');
     const payload = teamPayload(req.body ?? {}, existing);
     db.prepare(
-      `UPDATE team_members SET position_title=?, position_order=?, name=?, bio=?, email=?, contact_label=?, contact_url=?, photo_id=?, vacant=?, is_public=?, updated_at=? WHERE id=?`
-    ).run(payload.position_title, payload.position_order, payload.name, payload.bio, payload.email, payload.contact_label, payload.contact_url, payload.photo_id, payload.vacant, payload.is_public, nowIso(), existing.id);
+      `UPDATE team_members SET position_title=?, position_order=?, name=?, bio=?, email=?, contact_label=?, contact_url=?, photo_id=?, photo_position=?, vacant=?, is_public=?, updated_at=? WHERE id=?`
+    ).run(payload.position_title, payload.position_order, payload.name, payload.bio, payload.email, payload.contact_label, payload.contact_url, payload.photo_id, payload.photo_position, payload.vacant, payload.is_public, nowIso(), existing.id);
     audit(admin.id, admin.name, 'team.update', 'team_member', existing.id, {});
     return { ok: true };
   })
@@ -460,4 +461,3 @@ contentRouter.delete(
     return { ok: true };
   })
 );
-

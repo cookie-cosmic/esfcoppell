@@ -99,6 +99,7 @@ publicRouter.get(
         contact_url: r.vacant ? null : r.contact_url,
         photo_url: mediaUrl(photo),
         photo_alt: photo?.alt || r.name || r.position_title,
+        photo_position: r.photo_position || '50% 50%',
         vacant: !!r.vacant,
       };
     });
@@ -169,6 +170,7 @@ publicRouter.get(
     event_categories: getSetting('event_categories'),
     hour_rules: hourRules(),
     branding: getSetting('branding'),
+    socials: getSetting('socials'),
     directory_visibility: getSetting('directory_visibility'),
   }))
 );

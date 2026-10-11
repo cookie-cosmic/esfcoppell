@@ -47,20 +47,25 @@ studentsRouter.get(
     const rows = db
       .prepare(
         `SELECT st.first_name, st.last_name, st.email, st.school_level, st.active,
+                s.event_name, s.event_date, s.total_hours AS submitted_hours, s.status AS submission_status,
+                s.created_at AS submitted_at, s.decided_at, COALESCE(a.name, '') AS approver_name,
                 COALESCE((SELECT SUM(sr.hours) FROM service_records sr WHERE sr.student_id = st.id AND sr.status='active'),0) AS total_hours,
                 (SELECT COUNT(*) FROM submissions s WHERE s.student_id = st.id AND s.status IN ('pending','correction_requested')) AS pending_n,
                 (SELECT COUNT(*) FROM submissions s WHERE s.student_id = st.id AND s.status = 'approved') AS approved_n,
                 (SELECT COUNT(*) FROM submissions s WHERE s.student_id = st.id AND s.status = 'declined') AS declined_n
-         FROM students st ORDER BY st.last_name, st.first_name`
+         FROM students st
+         LEFT JOIN submissions s ON s.student_id = st.id
+         LEFT JOIN admin_users a ON a.id = s.decided_by
+         ORDER BY st.last_name, st.first_name, s.created_at DESC`
       )
       .all() as any[];
     const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
     const approvalStatus = (r: any) =>
       r.pending_n > 0 ? 'Pending review' : r.approved_n > 0 ? 'Approved' : r.declined_n > 0 ? 'Declined' : 'No submissions';
     const csv = [
-      ['first_name', 'last_name', 'email', 'school_level', 'active', 'approval_status', 'total_approved_hours'].join(','),
+      ['first_name', 'last_name', 'email', 'school_level', 'active', 'event_name', 'event_date', 'submitted_hours', 'submission_status', 'submitted_at', 'decided_at', 'approver_name', 'approval_status', 'total_approved_hours'].join(','),
       ...rows.map((r) =>
-        [r.first_name, r.last_name, r.email, r.school_level, r.active ? 'yes' : 'no', approvalStatus(r), r.total_hours].map(esc).join(',')
+        [r.first_name, r.last_name, r.email, r.school_level, r.active ? 'yes' : 'no', r.event_name, r.event_date, r.submitted_hours, r.submission_status, r.submitted_at, r.decided_at, r.approver_name, approvalStatus(r), r.total_hours].map(esc).join(',')
       ),
     ].join('\n');
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');

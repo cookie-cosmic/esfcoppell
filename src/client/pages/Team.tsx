@@ -28,7 +28,7 @@ function Seat({ m, index, lead }: { m: any; index: number; lead?: boolean }) {
     <article className={`seat ${lead ? 'seat-lead' : ''}`} style={style}>
       <div className="seat-avatar">
         {m.photo_url ? (
-          <SmartImage className="seat-photo" src={m.photo_url} alt={m.photo_alt || m.name} />
+          <SmartImage className="seat-photo" src={m.photo_url} alt={m.photo_alt || m.name} style={{ objectPosition: m.photo_position ?? '50% 50%' }} />
         ) : (
           <div className="seat-initials" aria-hidden="true">{initials(m.name || m.position)}</div>
         )}

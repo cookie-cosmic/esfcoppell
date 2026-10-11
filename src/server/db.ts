@@ -251,6 +251,10 @@ CREATE INDEX IF NOT EXISTS idx_versions_created ON content_versions(created_at D
 `;
 
 db.exec(SCHEMA);
+const teamColumns = db.prepare('PRAGMA table_info(team_members)').all() as { name: string }[];
+if (!teamColumns.some((column) => column.name === 'photo_position')) {
+  db.exec("ALTER TABLE team_members ADD COLUMN photo_position TEXT NOT NULL DEFAULT '50% 50%'");
+}
 
 /* ------------------------- settings helpers ------------------------- */
 
@@ -285,6 +289,14 @@ export const DEFAULT_SETTINGS: Record<string, unknown> = {
     pink: '#EF0A71',
     gold: '#F0822F',
     logo_url: '/assets/logo.svg',
+  },
+  socials: {
+    enabled: false,
+    instagram: '',
+    tiktok: '',
+    facebook: '',
+    youtube: '',
+    x: '',
   },
   retention: { allow_hard_delete: false },
 };

@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { IconMenu, IconX, SmileMark } from './icons';
 import { STAFF_BASE } from '../lib/paths';
+import { useApi } from '../lib/hooks';
 
 export const NAV = [
   { to: '/', label: 'Home' },
@@ -65,6 +66,8 @@ export function Header() {
 
 export function Footer() {
   const egg = useEasterEgg();
+  const { data: config } = useApi<any>('/api/config');
+  const socials = config?.socials;
   return (
     <footer className="site-footer">
       <div className="container">
@@ -101,6 +104,14 @@ export function Footer() {
               <li><a href="https://www.endlesssmilesfoundation.org" target="_blank" rel="noreferrer">National foundation</a></li>
             </ul>
           </div>
+          {socials?.enabled && Object.entries(socials).some(([key, value]) => key !== 'enabled' && value) ? (
+            <div>
+              <h4>Follow us</h4>
+              <ul>
+                {Object.entries(socials).filter(([key, value]) => key !== 'enabled' && value).map(([key, value]) => <li key={key}><a href={String(value)} target="_blank" rel="noreferrer">{key[0].toUpperCase() + key.slice(1)}</a></li>)}
+              </ul>
+            </div>
+          ) : null}
         </div>
         <div className="footer-bottom">
           <span>© {new Date().getFullYear()} Endless Smiles Foundation — Coppell Chapter. Made with ♥ by students.</span>
