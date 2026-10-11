@@ -32,7 +32,10 @@ npm run reset-admin-password -- --email you@example.org --password-from-stdin # 
 npm run serve            # serves API + built site on http://localhost:8080
 ```
 
-Set the Render environment variable `ADMIN_PIN` to the six-digit keypad PIN. The
+Set the Render environment variables `ADMIN_PIN` to the six-digit keypad PIN and
+`ADMIN_PASSWORD` to the recovery password. If the database has no administrator yet,
+the first valid PIN or password login creates the internal owner identity automatically.
+The
 production Render service uses a persistent disk for SQLite data. Do not deploy the
 API without persistent storage, or administrator accounts and password hashes can be lost
 when the service restarts or redeploys.

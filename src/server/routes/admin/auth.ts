@@ -49,18 +49,33 @@ adminAuthRouter.post(
     const password = typeof req.body?.password === 'string' ? req.body.password : '';
     const pin = typeof req.body?.pin === 'string' ? req.body.pin : '';
     if (!password && !pin) throw new ApiError(401, 'Password or PIN required.');
-    const rows = db.prepare('SELECT * FROM admin_users WHERE active = 1 ORDER BY created_at').all() as {
+    const configuredPin = process.env.ADMIN_PIN;
+    const configuredPassword = process.env.ADMIN_PASSWORD;
+    let rows = db.prepare('SELECT * FROM admin_users WHERE active = 1 ORDER BY created_at').all() as {
       id: string; email: string; password_hash: string; role: string; name: string;
     }[];
+    if (!rows.length && configuredPin && configuredPassword) {
+      const pinMatches = pin && (configuredPin === pin || verifyPassword(pin, configuredPin));
+      const passwordMatches = password && (configuredPassword === password || verifyPassword(password, configuredPassword));
+      if (pinMatches || passwordMatches) {
+        const id = 'adm_env_owner';
+        db.prepare(
+          'INSERT OR IGNORE INTO admin_users (id, email, name, password_hash, role, active, created_at) VALUES (?,?,?,?,?,1,?)'
+        ).run(id, 'admin@configured.local', 'Configured Administrator', hashPassword(configuredPassword), 'owner', nowIso());
+        rows = db.prepare('SELECT * FROM admin_users WHERE active = 1 ORDER BY created_at').all() as typeof rows;
+      }
+    }
     let matched: typeof rows[number] | undefined;
     if (pin) {
       if (!/^\d{6}$/.test(pin)) throw new ApiError(401, 'Invalid PIN.');
-      const configuredPin = process.env.ADMIN_PIN;
-      if (!rows.length) throw new ApiError(503, 'No active administrator is configured. Complete administrator setup first.');
+      if (!rows.length) throw new ApiError(503, 'Configure ADMIN_PIN and ADMIN_PASSWORD in the deployment environment.');
       if (configuredPin && (configuredPin === pin || verifyPassword(pin, configuredPin))) matched = rows[0];
     } else {
       for (const row of rows) {
-        if (verifyPassword(password, row.password_hash)) { matched = row; break; }
+        if (verifyPassword(password, row.password_hash) || (configuredPassword === password && password === configuredPassword)) {
+          matched = row;
+          break;
+        }
       }
     }
     if (!matched) {
