@@ -56,6 +56,7 @@ adminAuthRouter.post(
     if (pin) {
       if (!/^\d{6}$/.test(pin)) throw new ApiError(401, 'Invalid PIN.');
       const configuredPin = process.env.ADMIN_PIN;
+      if (!rows.length) throw new ApiError(503, 'No active administrator is configured. Complete administrator setup first.');
       if (configuredPin && (configuredPin === pin || verifyPassword(pin, configuredPin))) matched = rows[0];
     } else {
       for (const row of rows) {
