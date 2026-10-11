@@ -32,7 +32,7 @@ npm run reset-admin-password -- --email you@example.org --password-from-stdin # 
 npm run serve            # serves API + built site on http://localhost:8080
 ```
 
-Set the Render environment variables `ADMIN_PIN` to the six-digit keypad PIN and
+Set the Render environment variable `ADMIN_PIN` to `119270` (or your chosen six-digit keypad PIN) and
 `ADMIN_PASSWORD` to the recovery password. If the database has no administrator yet,
 the first valid PIN or password login creates the internal owner identity automatically.
 The

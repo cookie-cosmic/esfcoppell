@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { api, ApiError } from '../../lib/api';
 import { useApi } from '../../lib/hooks';
 import { colorFor, initials } from '../../lib/format';
@@ -11,6 +11,7 @@ export default function TeamAdmin() {
   const toast = useToast();
   const [editing, setEditing] = useState<any | null>(null);
   const [deleting, setDeleting] = useState<any | null>(null);
+  const [photoTarget, setPhotoTarget] = useState<any | null>(null);
 
   const move = async (item: any, dir: -1 | 1) => {
     const list = [...(data ?? [])].sort((a, b) => a.position_order - b.position_order);
@@ -51,11 +52,13 @@ export default function TeamAdmin() {
               <button className="icon-btn" aria-label="Move down" disabled={i === (data?.length ?? 0) - 1} onClick={() => move(m, 1)}><IconChevron style={{ transform: 'rotate(90deg)' }} /></button>
             </div>
             {m.photo_id ? (
-              <SmartImage src={`/uploads/${media?.find((x) => x.id === m.photo_id)?.stored_name ?? ''}`} alt={m.name || m.position_title} style={{ width: 56, height: 56, borderRadius: '50%', objectFit: 'cover', objectPosition: m.photo_position ?? '50% 50%' }} />
+              <button className="icon-btn" title="Change profile photo" onClick={() => setPhotoTarget(m)}>
+                <SmartImage src={`/uploads/${media?.find((x) => x.id === m.photo_id)?.stored_name ?? ''}`} alt={m.name || m.position_title} style={{ width: 56, height: 56, borderRadius: '50%', objectFit: 'cover', objectPosition: m.photo_position ?? '50% 50%' }} />
+              </button>
             ) : (
-              <div className="avatar-initials" style={{ width: 56, height: 56, fontSize: '1.1rem', background: m.vacant ? '#e6e1dd' : colorFor(m.name || m.position_title) }}>
+              <button className="avatar-initials" title="Add profile photo" onClick={() => setPhotoTarget(m)} style={{ width: 56, height: 56, fontSize: '1.1rem', background: m.vacant ? '#e6e1dd' : colorFor(m.name || m.position_title), border: 0, cursor: 'pointer' }}>
                 {m.vacant ? '?' : initials(m.name || m.position_title)}
-              </div>
+              </button>
             )}
             <div style={{ flex: 1, minWidth: 180 }}>
               <strong>{m.position_title}</strong>
@@ -69,9 +72,50 @@ export default function TeamAdmin() {
         ))}
       </div>
       {editing ? <TeamEditor initial={editing} media={media ?? []} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); reload(); }} /> : null}
+      {photoTarget ? <PhotoPicker member={photoTarget} media={media ?? []} onClose={() => setPhotoTarget(null)} onSaved={() => { setPhotoTarget(null); reload(); }} /> : null}
       {deleting ? <ConfirmDialog title={`Remove "${deleting.position_title}"?`} body="The position and its public card will be removed." danger confirmLabel="Remove" onCancel={() => setDeleting(null)} onConfirm={del} /> : null}
     </>
   );
+}
+
+function PhotoPicker({ member, media, onClose, onSaved }: { member: any; media: any[]; onClose: () => void; onSaved: () => void }) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const toast = useToast();
+  const [busy, setBusy] = useState(false);
+  const [selected, setSelected] = useState(member.photo_id ?? '');
+  const save = async (photoId: string | null) => {
+    setBusy(true);
+    try {
+      await api.patch(`/api/admin/content/team/${member.id}`, { photo_id: photoId });
+      toast('success', photoId ? 'Profile photo updated.' : 'Profile photo removed.');
+      onSaved();
+    } catch (e) { toast('error', e instanceof ApiError ? e.message : 'Could not update profile photo.'); }
+    finally { setBusy(false); }
+  };
+  const upload = async (file: File | undefined) => {
+    if (!file) return;
+    setBusy(true);
+    try {
+      const fd = new FormData(); fd.append('file', file); fd.append('alt', `${member.name || member.position_title} profile photo`);
+      const result = await api.upload<{ id: string }>('/api/admin/media', fd);
+      await api.patch(`/api/admin/content/team/${member.id}`, { photo_id: result.id });
+      toast('success', 'Profile photo uploaded.');
+      onSaved();
+    } catch (e) { toast('error', e instanceof ApiError ? e.message : 'Could not upload profile photo.'); }
+    finally { setBusy(false); if (fileRef.current) fileRef.current.value = ''; }
+  };
+  return <Modal title="Change Profile Photo" onClose={onClose}>
+    <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden onChange={(e) => upload(e.target.files?.[0])} />
+    <button className="btn btn-primary" disabled={busy} onClick={() => fileRef.current?.click()}>Upload Photo</button>
+    <Field label="Choose from media library">
+      <select className="input" value={selected} disabled={busy} onChange={(e) => { setSelected(e.target.value); save(e.target.value || null); }}>
+        <option value="">No photo</option>
+        {media.map((m) => <option key={m.id} value={m.id}>{m.alt || m.filename}</option>)}
+      </select>
+    </Field>
+    {member.photo_id ? <button className="btn btn-danger" disabled={busy} onClick={() => save(null)}>Remove Current Photo</button> : null}
+    <button className="btn btn-outline" onClick={onClose}>Cancel</button>
+  </Modal>;
 }
 
 function TeamEditor({ initial, media, onClose, onSaved }: { initial: any; media: any[]; onClose: () => void; onSaved: () => void }) {
