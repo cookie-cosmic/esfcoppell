@@ -14,7 +14,7 @@ npm run create-admin          # interactive; or:
 NODE_ENV=production PORT=8080 COOKIE_SECURE=true MEMBER_COOKIE_SECRET="$(openssl rand -base64 32)" node dist-server/server/index.js
 ```
 
-Persistent volume: point `DATA_DIR` (SQLite file + uploads) at mounted storage. The server normalizes its file URL correctly on Windows, and uses `data/app.db` by default; do not place the database in a disposable build/output directory.
+Persistent volume: point `DATA_DIR` (SQLite file + uploads) at mounted storage. The included Render Blueprint mounts the disk at `/var/data`, stores the database under `/var/data/endless-smiles`, and sets `PERSISTENCE_REQUIRED=true`. The server logs and `/api/health` expose the active database path so a deployment can be verified before real data is entered. The server normalizes its file URL correctly on Windows, and uses `data/app.db` by default locally; do not place the database in a disposable build/output directory.
 Health check: `GET /api/health`.
 
 Optional env-var bootstrap instead of CLI (one-time, only while no admin exists):
@@ -70,7 +70,7 @@ use durable storage before keeping real student records or uploads.
    ```
 
 3. Open the Render service shell and run `npm run create-admin` once to create the owner.
-4. Confirm `GET https://esfcoppell-api.onrender.com/api/health` responds before signing in.
+4. Confirm `GET https://esfcoppell-api.onrender.com/api/health` responds before signing in, and verify `persistence.required` is `true`, `persistence.database_path` is under `/var/data/endless-smiles`, and `database_exists` is `true`.
 
 The API explicitly allows requests from `https://esfcoppell.web.app` and uses bearer
 session tokens for cross-origin admin requests.

@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import fs from 'node:fs';
 import {
   db,
   nowIso,
@@ -7,6 +8,8 @@ import {
   computeChapterStats,
   approvedTotalsByStudent,
   approvedTotalFor,
+  DATA_DIR,
+  DB_PATH,
 } from '../db.js';
 import { ah, ApiError } from '../lib/http.js';
 import { MEMBER_COOKIE, memberCookieValue, verifyMember, sessionCookieOptions, signMember } from '../lib/auth.js';
@@ -343,5 +346,16 @@ publicRouter.get(
 );
 
 publicRouter.get('/health', (_req, res) =>
-  res.json({ ok: true, time: nowIso(), settings_loaded: Object.keys(allSettings()).length })
+  res.json({
+    ok: true,
+    time: nowIso(),
+    settings_loaded: Object.keys(allSettings()).length,
+    persistence: {
+      data_dir: DATA_DIR,
+      database_path: DB_PATH,
+      database_exists: fs.existsSync(DB_PATH),
+      uploads_dir_exists: fs.existsSync(`${DATA_DIR}/uploads`),
+      required: process.env.PERSISTENCE_REQUIRED === 'true',
+    },
+  })
 );

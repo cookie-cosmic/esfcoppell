@@ -15,9 +15,14 @@ export const DB_PATH = process.env.DB_PATH || path.join(DATA_DIR, 'app.db');
 fs.mkdirSync(DATA_DIR, { recursive: true });
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
+if (process.env.PERSISTENCE_REQUIRED === 'true' && !process.env.DATA_DIR) {
+  throw new Error('PERSISTENCE_REQUIRED is enabled but DATA_DIR is not configured.');
+}
+
 export const db = new Database(DB_PATH);
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
+console.log(`[db] persistent database: ${DB_PATH}`);
 
 export const nowIso = () => new Date().toISOString();
 export const newId = (prefix: string) =>
