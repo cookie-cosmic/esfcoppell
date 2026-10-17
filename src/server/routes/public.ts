@@ -10,6 +10,7 @@ import {
   approvedTotalFor,
   DATA_DIR,
   DB_PATH,
+  cloudPersistenceEnabled,
 } from '../db.js';
 import { ah, ApiError } from '../lib/http.js';
 import { MEMBER_COOKIE, memberCookieValue, verifyMember, sessionCookieOptions, signMember } from '../lib/auth.js';
@@ -356,6 +357,8 @@ publicRouter.get('/health', (_req, res) =>
       database_exists: fs.existsSync(DB_PATH),
       uploads_dir_exists: fs.existsSync(`${DATA_DIR}/uploads`),
       required: process.env.PERSISTENCE_REQUIRED === 'true',
+      backend: cloudPersistenceEnabled() ? 'supabase-postgres-snapshot' : 'local-sqlite',
+      supabase_configured: cloudPersistenceEnabled(),
     },
   })
 );

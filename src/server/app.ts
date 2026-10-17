@@ -2,7 +2,7 @@ import express from 'express';
 import cookieParser from 'cookie-parser';
 import path from 'node:path';
 import fs from 'node:fs';
-import { db, nowIso, ROOT, UPLOAD_DIR, auditContext } from './db.js';
+import { db, nowIso, ROOT, UPLOAD_DIR, auditContext, scheduleCloudSnapshot } from './db.js';
 import { attachAdmin } from './lib/auth.js';
 import { ApiError } from './lib/http.js';
 import { publicRouter } from './routes/public.js';
@@ -47,6 +47,15 @@ app.use((_req, res, next) => {
 });
 
 app.use('/uploads', express.static(UPLOAD_DIR, { maxAge: '7d', index: false, dotfiles: 'deny' }));
+
+app.use((req, res, next) => {
+  res.on('finish', () => {
+    if (req.method !== 'GET' && req.method !== 'HEAD' && res.statusCode < 400) {
+      scheduleCloudSnapshot(db, UPLOAD_DIR);
+    }
+  });
+  next();
+});
 
 app.use('/api', publicRouter);
 app.use('/api/admin', adminAuthRouter);
@@ -134,5 +143,6 @@ if (!hasContent) {
 }
 
 ensureBaselineVersion();
+scheduleCloudSnapshot(db, UPLOAD_DIR);
 
 export default app;

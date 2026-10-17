@@ -4,6 +4,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { AsyncLocalStorage } from 'node:async_hooks';
+import { cloudPersistenceEnabled, restoreCloudState, scheduleCloudSnapshot, flushCloudSnapshot } from './cloud-persistence.js';
 
 // URL.pathname keeps a leading slash before the drive letter on Windows ("/C:/...").
 // fileURLToPath normalizes it so the SQLite file remains in the project data directory across restarts.
@@ -267,6 +268,15 @@ const eventColumns = db.prepare('PRAGMA table_info(events)').all() as { name: st
 if (!eventColumns.some((column) => column.name === 'banner_size')) {
   db.exec("ALTER TABLE events ADD COLUMN banner_size TEXT NOT NULL DEFAULT 'standard'");
 }
+
+await restoreCloudState(db, UPLOAD_DIR);
+if (cloudPersistenceEnabled()) {
+  console.log('[db] Supabase persistence is enabled');
+} else {
+  console.warn('[db] Supabase persistence is not configured; local data will be ephemeral on Render.');
+}
+
+export { cloudPersistenceEnabled, scheduleCloudSnapshot, flushCloudSnapshot };
 
 /* ------------------------- settings helpers ------------------------- */
 

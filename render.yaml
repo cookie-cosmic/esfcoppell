@@ -21,6 +21,8 @@ services:
         value: https://esfcoppell.web.app
       - key: MEMBER_COOKIE_SECRET
         generateValue: true
+      - key: SUPABASE_DB_URL
+        sync: false
     disk:
       name: endless-smiles-data
       mountPath: /var/data

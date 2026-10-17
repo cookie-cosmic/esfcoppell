@@ -14,7 +14,7 @@ npm run create-admin          # interactive; or:
 NODE_ENV=production PORT=8080 COOKIE_SECURE=true MEMBER_COOKIE_SECRET="$(openssl rand -base64 32)" node dist-server/server/index.js
 ```
 
-Persistent volume: point `DATA_DIR` (SQLite file + uploads) at mounted storage when using SQLite. The included Render Blueprint is prepared for a paid Render disk, but free Render services remain ephemeral until the Supabase migration is enabled. The server logs and `/api/health` expose the active database path so a deployment can be verified. The server normalizes its file URL correctly on Windows, and uses `data/app.db` by default locally; do not place the database in a disposable build/output directory.
+Persistent volume: point `DATA_DIR` (SQLite file + uploads) at mounted storage when using SQLite. The application also supports durable Supabase persistence through the server-only `SUPABASE_DB_URL` variable. When that variable is present, the server restores every application table and uploaded media from Supabase during startup and schedules a durable snapshot after every successful write. The server logs and `/api/health` expose the active persistence backend so a deployment can be verified. The server normalizes its file URL correctly on Windows, and uses `data/app.db` by default locally; do not place the database in a disposable build/output directory.
 Health check: `GET /api/health`.
 
 Optional env-var bootstrap instead of CLI (one-time, only while no admin exists):
@@ -36,11 +36,28 @@ Option-A API (or the Supabase option below) cross-origin.
 4. Never put secrets in the static bundle — the client only ever receives public data and
    its own session cookie.
 
-## Option C — Supabase (Postgres + Auth + Storage + RLS)
+## Option C — Supabase durability (Postgres-backed application state)
 
-`supabase/migrations/0001_init.sql` ports the schema with row-level-security policies that
-mirror `docs/SCHEMA.md` (anonymous = published content only; students = own rows via access
-code; staff = claims-based roles). To adopt it:
+The production Express application keeps its existing SQLite-compatible query layer so the
+current routes remain stable, but uses Supabase Postgres as its durable state store. This
+avoids a risky synchronous-to-asynchronous rewrite while still surviving Render restarts.
+
+Configure the following server-only Render variable:
+
+```text
+SUPABASE_DB_URL=postgresql://postgres.<project-ref>:<password>@aws-0-<region>.pooler.supabase.com:6543/postgres
+```
+
+Use the transaction pooler URL, keep the password secret, and never expose this variable to
+the browser or commit it to the repository. On first boot the server creates the private
+`app_persistence_snapshots` and `app_persistence_assets` tables in Supabase automatically.
+The snapshot contains all application tables, including admin sessions, volunteer PINs,
+submissions, approvals, settings, CMS content, audit logs, and version history. Media files
+are stored in `app_persistence_assets` so profile photos also survive filesystem resets.
+
+The existing `supabase/migrations/0001_init.sql` remains available for teams that want the
+normalized Supabase Auth/RLS schema. It is not required for this Express durability bridge.
+To adopt that normalized schema separately:
 
 1. `supabase init` + copy the migration, `supabase db push`.
 2. Create staff users in Supabase Auth with the `owner`/`admin`/`reviewer` role in
@@ -49,7 +66,6 @@ code; staff = claims-based roles). To adopt it:
    browser and the **service-role** key only server-side (never in the bundle).
 4. Move uploads to a private Storage bucket with policies mirroring the media rules.
 
-Until that swap is made, the Express/SQLite backend in this repo is the supported path.
 
 ## Option D — Firebase Hosting + Render free API
 
@@ -70,7 +86,7 @@ use durable storage before keeping real student records or uploads.
    ```
 
 3. Open the Render service shell and run `npm run create-admin` once to create the owner.
-4. Confirm `GET https://esfcoppell-api.onrender.com/api/health` responds before signing in, and verify `persistence.required` is `true`, `persistence.database_path` is under `/var/data/endless-smiles`, and `database_exists` is `true`.
+4. Confirm `GET https://esfcoppell-api.onrender.com/api/health` responds before signing in, and verify `persistence.backend` is `supabase-postgres-snapshot`, `persistence.supabase_configured` is `true`, and `database_exists` is `true`.
 
 The API explicitly allows requests from `https://esfcoppell.web.app` and uses bearer
 session tokens for cross-origin admin requests.
