@@ -83,10 +83,12 @@ function PhotoPicker({ member, media, onClose, onSaved }: { member: any; media: 
   const toast = useToast();
   const [busy, setBusy] = useState(false);
   const [selected, setSelected] = useState(member.photo_id ?? '');
-  const save = async (photoId: string | null) => {
+  const [position, setPosition] = useState(member.photo_position ?? '50% 50%');
+  const [x, y] = position.split(' ').map((v: string) => parseInt(v, 10) || 50);
+  const save = async (photoId: string | null = selected, nextPosition = position) => {
     setBusy(true);
     try {
-      await api.patch(`/api/admin/content/team/${member.id}`, { photo_id: photoId });
+      await api.patch(`/api/admin/content/team/${member.id}`, { photo_id: photoId, photo_position: nextPosition });
       toast('success', photoId ? 'Profile photo updated.' : 'Profile photo removed.');
       onSaved();
     } catch (e) { toast('error', e instanceof ApiError ? e.message : 'Could not update profile photo.'); }
@@ -113,6 +115,21 @@ function PhotoPicker({ member, media, onClose, onSaved }: { member: any; media: 
         {media.map((m) => <option key={m.id} value={m.id}>{m.alt || m.filename}</option>)}
       </select>
     </Field>
+    {selected ? (
+      <div className="frame-picker">
+        <div className="frame-preview">
+          <SmartImage src={assetUrl(media.find((m) => m.id === selected)?.url)} alt="Profile crop preview" style={{ objectFit: 'cover', objectPosition: position }} />
+          <span className="frame-grid-lines" aria-hidden="true" />
+        </div>
+        <p className="tiny muted">Adjust the photo inside the circular frame.</p>
+        <label className="tiny">Horizontal framing
+          <input type="range" min="0" max="100" value={x} onChange={(e) => { const next = `${e.target.value}% ${y}%`; setPosition(next); save(selected, next); }} />
+        </label>
+        <label className="tiny">Vertical framing
+          <input type="range" min="0" max="100" value={y} onChange={(e) => { const next = `${x}% ${e.target.value}%`; setPosition(next); save(selected, next); }} />
+        </label>
+      </div>
+    ) : null}
     {member.photo_id ? <button className="btn btn-danger" disabled={busy} onClick={() => save(null)}>Remove Current Photo</button> : null}
     <button className="btn btn-outline" onClick={onClose}>Cancel</button>
   </Modal>;

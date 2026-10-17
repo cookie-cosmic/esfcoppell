@@ -48,6 +48,7 @@ adminAuthRouter.post(
   ah((req, res) => {
     const password = typeof req.body?.password === 'string' ? req.body.password : '';
     const pin = typeof req.body?.pin === 'string' ? req.body.pin : '';
+    const loginName = typeof req.body?.login_name === 'string' ? req.body.login_name.trim().slice(0, 80) : '';
     if (!password && !pin) throw new ApiError(401, 'Password or PIN required.');
     const configuredPin = process.env.ADMIN_PIN;
     const configuredPassword = process.env.ADMIN_PASSWORD;
@@ -89,9 +90,11 @@ adminAuthRouter.post(
     }
     const sessionId = createSession(matched.id, req);
     res.cookie(SESSION_COOKIE, sessionId, sessionCookieOptions());
-    audit(matched.id, matched.name, pin ? 'admin.pin_login' : 'admin.login', 'admin_user', matched.id, {
+    audit(matched.id, loginName || matched.name, pin ? 'admin.pin_login' : 'admin.login', 'admin_user', matched.id, {
       ip: req.ip ?? null,
       method: pin ? 'pin' : 'password',
+      account_name: matched.name,
+      entered_name: loginName || matched.name,
     });
     return { ok: true, token: sessionId, admin: { id: matched.id, email: matched.email, name: matched.name, role: matched.role } };
   })

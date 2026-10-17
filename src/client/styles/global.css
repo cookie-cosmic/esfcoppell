@@ -866,8 +866,8 @@ a, button, input, select, textarea, label, .badge, .progress, .tabs button, .cod
   box-shadow: 0 14px 30px -22px rgba(23, 24, 28, 0.4);
 }
 .seat:hover { transform: translateY(-4px); box-shadow: 0 22px 40px -22px rgba(23, 24, 28, 0.45); }
-.seat-avatar { top: -38px; width: 78px; height: 78px; background: var(--accent); padding: 3px; box-shadow: 0 10px 20px -10px var(--accent); }
-.seat-lead .seat-avatar { width: 92px; height: 92px; top: -44px; }
+.seat-avatar { top: -46px; width: 96px; height: 96px; background: var(--accent); padding: 3px; box-shadow: 0 10px 20px -10px var(--accent); }
+.seat-lead .seat-avatar { width: 112px; height: 112px; top: -54px; }
 .seat-photo, .seat-initials { border: 3px solid #fff; }
 .seat-name { font-family: var(--font); font-size: 1.08rem; font-weight: 800; color: #17181c; margin: 2px 0 0; letter-spacing: -0.01em; }
 .seat-role { font-family: var(--font); font-size: 0.92rem; font-weight: 700; color: var(--accent); margin: 0; letter-spacing: 0; line-height: 1.3; }
@@ -885,6 +885,11 @@ a, button, input, select, textarea, label, .badge, .progress, .tabs button, .cod
 .seat-vacant:hover { transform: none; box-shadow: none; }
 .seat-avatar-open { background: #d6cfc9; font-size: 1.5rem; }
 .seat-vacant .seat-avatar { background: #d6cfc9; }
+.frame-preview { position: relative; width: 220px; height: 220px; margin: 14px auto; border-radius: 50%; overflow: hidden; background: #111318; }
+.frame-preview img { width: 100%; height: 100%; display: block; }
+.frame-grid-lines { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(90deg, transparent 33.1%, rgba(255,255,255,.72) 33.3%, transparent 33.8%, transparent 66.1%, rgba(255,255,255,.72) 66.3%, transparent 66.8%), linear-gradient(0deg, transparent 33.1%, rgba(255,255,255,.72) 33.3%, transparent 33.8%, transparent 66.1%, rgba(255,255,255,.72) 66.3%, transparent 66.8%); }
+.frame-picker label { display: grid; gap: 5px; margin-top: 10px; }
+.frame-picker input[type="range"] { width: 100%; accent-color: var(--crimson); }
 
 /* ============================================================
    ROUND 4 — motion, one step up (SAGE-style easing, sheen, marquee, counters)

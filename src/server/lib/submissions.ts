@@ -27,6 +27,7 @@ export interface SubmissionInput {
   total_hours: number;
   approver_primary: string;
   approver_secondary?: string | null;
+  access_code?: string | null;
 }
 
 export interface ValidationResult {
@@ -53,6 +54,7 @@ export function validateSubmission(raw: Record<string, unknown>): ValidationResu
   const end_time = s('end_time', 5) || null;
   const approver_primary = s('approver_primary', 120);
   const approver_secondary = s('approver_secondary', 120) || null;
+  const access_code = s('access_code', 30).toUpperCase() || null;
 
   if (!first_name) errors.first_name = 'First name is required.';
   if (!last_name) errors.last_name = 'Last name is required.';
@@ -117,6 +119,7 @@ export function validateSubmission(raw: Record<string, unknown>): ValidationResu
     total_hours: hours ?? 0,
     approver_primary,
     approver_secondary,
+    access_code,
   };
 
   return { errors, normalized: Object.keys(errors).length ? null : normalized, computedHours };
@@ -124,7 +127,8 @@ export function validateSubmission(raw: Record<string, unknown>): ValidationResu
 
 export interface CreatedSubmission {
   submission_id: string;
-  access_code: string;
+  access_code: string | null;
+  is_new_access_code: boolean;
   status: 'pending';
 }
 
@@ -132,6 +136,15 @@ export interface CreatedSubmission {
 export function createSubmission(input: SubmissionInput, computedHours: number | null): CreatedSubmission {
   return db.transaction(() => {
     let student = db.prepare('SELECT id FROM students WHERE email = ?').get(input.email) as { id: string } | undefined;
+    if (input.access_code) {
+      const linked = db.prepare('SELECT student_id FROM access_codes WHERE code = ?').get(input.access_code) as { student_id: string } | undefined;
+      if (!linked) throw new ApiError(422, 'That dedicated PIN was not found. Check it and try again.');
+      const linkedStudent = db.prepare('SELECT id, email FROM students WHERE id = ?').get(linked.student_id) as { id: string; email: string | null } | undefined;
+      if (!linkedStudent || linkedStudent.email !== input.email) {
+        throw new ApiError(422, 'That dedicated PIN does not match the email on this submission.');
+      }
+      student = { id: linked.student_id };
+    }
     let studentId: string;
     if (student) {
       studentId = student.id;
@@ -164,12 +177,17 @@ export function createSubmission(input: SubmissionInput, computedHours: number |
     }
 
     let codeRow = db.prepare('SELECT code FROM access_codes WHERE student_id = ?').get(studentId) as { code: string } | undefined;
-    let code: string;
+    if (codeRow && !input.access_code) {
+      throw new ApiError(422, 'Enter the dedicated PIN tied to this account before submitting again.');
+    }
+    let code: string | null;
+    let isNewAccessCode = false;
     if (codeRow) {
       code = codeRow.code;
     } else {
       code = newAccessCode();
       db.prepare('INSERT INTO access_codes (code, student_id, created_at) VALUES (?,?,?)').run(code, studentId, nowIso());
+      isNewAccessCode = true;
     }
 
     const id = newId('sub');
@@ -193,7 +211,38 @@ export function createSubmission(input: SubmissionInput, computedHours: number |
       input.approver_secondary,
       nowIso()
     );
-    return { submission_id: id, access_code: code, status: 'pending' as const };
+    return { submission_id: id, access_code: isNewAccessCode ? code : null, is_new_access_code: isNewAccessCode, status: 'pending' as const };
+  })();
+}
+
+/** Replace the data on a correction-requested submission and return it to review. */
+export function correctSubmission(submissionId: string, accessCode: string, input: SubmissionInput, computedHours: number | null) {
+  return db.transaction(() => {
+    const link = db.prepare('SELECT student_id FROM access_codes WHERE code = ?').get(accessCode) as { student_id: string } | undefined;
+    if (!link) throw new ApiError(404, 'Dedicated PIN not found.');
+    const sub = db.prepare('SELECT * FROM submissions WHERE id = ? AND student_id = ?').get(submissionId, link.student_id) as { id: string; status: string } | undefined;
+    if (!sub) throw new ApiError(404, 'Submission not found for that PIN.');
+    if (sub.status !== 'correction_requested') throw new ApiError(409, 'This submission is not waiting for a correction.');
+    const ts = nowIso();
+    db.prepare(
+      `UPDATE submissions SET event_id=?, event_name=?, event_type=?, event_date=?, start_time=?, end_time=?,
+       total_hours=?, computed_hours=?, approver_primary=?, approver_secondary=?, status='pending',
+       decline_reason=NULL, decided_at=NULL, decided_by=NULL, admin_note=NULL WHERE id=?`
+    ).run(
+      input.event_id,
+      input.event_name,
+      input.event_type,
+      input.event_date,
+      input.start_time,
+      input.end_time,
+      input.total_hours,
+      computedHours,
+      input.approver_primary,
+      input.approver_secondary,
+      submissionId
+    );
+    audit(null, `Student ${link.student_id}`, 'submission.correction_submitted', 'submission', submissionId, { submitted_at: ts });
+    return { submission_id: submissionId, status: 'pending' as const };
   })();
 }
 

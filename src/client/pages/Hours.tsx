@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import { api, ApiError } from '../lib/api';
 import { asArray, useApi, usePageTitle } from '../lib/hooks';
-import { LEVEL_LABEL, fmtDate, fmtHours } from '../lib/format';
+import { LEVEL_LABEL, STATUS_LABEL, fmtDate, fmtHours } from '../lib/format';
 import { EmptyState, ErrorNote, Field, Loading, Pagination, ProgressBar, useToast } from '../components/ui';
 import { IconCheck, IconClock, IconMedal } from '../components/icons';
 
@@ -10,7 +10,7 @@ import { IconCheck, IconClock, IconMedal } from '../components/icons';
 const emptyForm = {
   first_name: '', last_name: '', email: '', school_level: '', event_type: 'synchronous',
   event_pick: '', event_other: '', event_date: '', start_time: '', end_time: '',
-  total_hours: '', approver_primary: '', approver_secondary: '',
+  total_hours: '', approver_primary: '', approver_secondary: '', access_code: '',
 };
 
 function clientValidate(f: typeof emptyForm, hourRules: any): Record<string, string> {
@@ -55,7 +55,7 @@ export default function Hours() {
   const [form, setForm] = useState({ ...emptyForm });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
-  const [created, setCreated] = useState<{ access_code: string } | null>(null);
+  const [created, setCreated] = useState<{ access_code: string | null; is_new_access_code: boolean } | null>(null);
   const eventList = asArray(events);
   const activityList = asArray(activities);
 
@@ -87,11 +87,12 @@ export default function Hours() {
         total_hours: Number(form.total_hours),
         approver_primary: form.approver_primary.trim(),
         approver_secondary: form.approver_secondary.trim() || null,
+        access_code: form.access_code.trim() || null,
       });
       setCreated(res);
       setForm({ ...emptyForm });
       toast('success', 'Submission received — it is pending review. See it below in Detailed Service Records.');
-      setTimeout(() => document.getElementById('records')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 350);
+      setTimeout(() => document.getElementById('ticket-toolbox')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 350);
     } catch (err: any) {
       if (err instanceof ApiError && err.status === 422 && err.details) setErrors(err.details);
       toast('error', err instanceof ApiError ? err.message : 'Submission failed. Please try again.');
@@ -127,9 +128,9 @@ export default function Hours() {
                 <div className="card card-pad" style={{ background: 'var(--green-soft)', borderColor: 'var(--green)', marginBottom: 18 }}>
                   <strong style={{ display: 'flex', gap: 8, alignItems: 'center' }}><IconCheck style={{ color: 'var(--green)' }} /> Submission received!</strong>
                   <p className="small muted" style={{ margin: '8px 0' }}>
-                    Your tracking code (saved on this device so your statuses appear in the records below):
+                    {created.is_new_access_code ? 'Save this dedicated PIN. It is shown only on your first submission.' : 'Submission received. Use your dedicated PIN in the toolbox below to view it.'}
                   </p>
-                  <span className="code-chip">{created.access_code}</span>
+                  {created.access_code ? <span className="code-chip">{created.access_code}</span> : null}
                 </div>
               ) : null}
               <form onSubmit={onSubmit} noValidate>
@@ -143,6 +144,13 @@ export default function Hours() {
                   <Field label="Email (links your submissions)" required error={errors.email} className="full"
                     hint="Used to match your future submissions to your record.">
                     <input className={`input ${errors.email ? 'invalid' : ''}`} type="email" value={form.email} onChange={set('email')} autoComplete="email" />
+                  </Field>
+                  <Field label="Dedicated PIN" className="full" hint="Choose “First submission” to receive a random PIN, or enter the PIN you already received.">
+                    <div className="row" style={{ gap: 16, marginBottom: 8 }}>
+                      <label className="row small" style={{ gap: 6 }}><input type="radio" name="pin_mode" checked={!form.access_code} onChange={() => setForm((f) => ({ ...f, access_code: '' }))} /> First submission / use my saved PIN below</label>
+                      <label className="row small" style={{ gap: 6 }}><input type="radio" name="pin_mode" checked={!!form.access_code} onChange={() => undefined} /> I have a PIN</label>
+                    </div>
+                    <input className="input" value={form.access_code} onChange={set('access_code')} placeholder="ES-7K2M-Q9XD-44TA" autoComplete="off" />
                   </Field>
                   <Field label="School level" required error={errors.school_level}>
                     <select className="input" value={form.school_level} onChange={set('school_level')}>
@@ -219,14 +227,8 @@ export default function Hours() {
             </section>
           </div>
 
-          {/* directory */}
-          <section id="directory" style={{ marginTop: 56 }}>
-            <Directory />
-          </section>
-
-          {/* detailed records incl. submission statuses */}
-          <section id="records" style={{ marginTop: 56, scrollMarginTop: 90 }}>
-            <Records />
+          <section id="ticket-toolbox" style={{ marginTop: 56, scrollMarginTop: 90 }}>
+            <TicketStatusToolbox />
           </section>
         </div>
       </div>
@@ -258,6 +260,75 @@ function MedalTable({ config }: { config: any }) {
         Example: an elementary student with 18 approved hours shows silver 18/25 (7 remaining) and gold 18/50 (32 remaining).
         Progress caps at 100% and recalculates automatically if your school level changes.
       </p>
+    </div>
+  );
+}
+
+function TicketStatusToolbox() {
+  const [code, setCode] = useState('');
+  const [submittedCode, setSubmittedCode] = useState('');
+  const [correction, setCorrection] = useState<any | null>(null);
+  const [form, setForm] = useState<any>({});
+  const [busy, setBusy] = useState(false);
+  const { data, loading, error } = useApi<any>(submittedCode ? `/api/lookup/${encodeURIComponent(submittedCode)}` : '');
+  const toast = useToast();
+  const load = (e: FormEvent) => { e.preventDefault(); setCorrection(null); setSubmittedCode(code.trim().toUpperCase()); };
+  const update = (k: string) => (e: any) => setForm((f: any) => ({ ...f, [k]: e.target.value }));
+  const sendCorrection = async (e: FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      await api.post(`/api/lookup/${encodeURIComponent(submittedCode)}/submissions/${correction.id}/correct`, form);
+      toast('success', 'Correction sent back for admin review.');
+      setCorrection(null);
+      setSubmittedCode(submittedCode);
+    } catch (err) { toast('error', err instanceof ApiError ? err.message : 'Could not send correction.'); }
+    finally { setBusy(false); }
+  };
+  return (
+    <div>
+      <div className="section-head" style={{ marginBottom: 18 }}>
+        <span className="eyebrow">Private information center</span>
+        <h2>Ticket Status / Self Stats Tool Box</h2>
+        <p className="section-sub small">Enter your dedicated PIN to see only your tickets, approval status, approved hours, and medal progress. No public submission database is shown.</p>
+      </div>
+      <form className="toolbar" onSubmit={load}>
+        <input className="input" value={code} onChange={(e) => setCode(e.target.value)} placeholder="Enter your dedicated PIN" aria-label="Dedicated PIN" required />
+        <button className="btn btn-primary" type="submit">View my tickets</button>
+      </form>
+      {loading ? <Loading label="Loading your private ticket center…" /> : null}
+      {error ? <ErrorNote message={error} /> : null}
+      {data ? (
+        <div className="stack">
+          <div className="card card-pad">
+            <strong>{data.student.first_name} {data.student.last_name}</strong>
+            <p className="small muted" style={{ margin: '5px 0 0' }}>Approved hours: <strong>{fmtHours(data.total_approved_hours)}</strong> · Silver: {data.medals.silver.complete ? 'earned' : `${fmtHours(data.medals.silver.remaining)}h remaining`} · Gold: {data.medals.gold.complete ? 'earned' : `${fmtHours(data.medals.gold.remaining)}h remaining`}</p>
+          </div>
+          {data.submissions.map((s: any) => (
+            <div className="card card-pad" key={s.id}>
+              <div className="row"><strong style={{ flex: 1 }}>{s.event_name}</strong><span className={`badge ${s.status}`}>{STATUS_LABEL[s.status] ?? s.status}</span></div>
+              <p className="tiny muted">{fmtDate(s.event_date)} · {fmtHours(s.total_hours)} hours · submitted {new Date(s.submitted_at).toLocaleString()}</p>
+              {s.feedback ? <p className="small" style={{ color: 'var(--crimson)' }}><strong>Admin feedback:</strong> {s.feedback}</p> : null}
+              {s.status === 'correction_requested' ? <button className="btn btn-outline btn-sm" onClick={() => { setCorrection(s); setForm(s.details ?? {}); }}>Correct and resend</button> : null}
+            </div>
+          ))}
+          {!data.submissions.length ? <EmptyState glyph="📭" title="No tickets yet" body="Submit your first volunteer-hours ticket above." /> : null}
+        </div>
+      ) : null}
+      {correction ? (
+        <div className="card card-pad" style={{ marginTop: 18 }}>
+          <h3>Correct “{correction.event_name}”</h3>
+          <p className="small muted">Update the fields requested by the administrator, then send the ticket back for review.</p>
+          <form className="form-grid" onSubmit={sendCorrection}>
+            <Field label="Event name" required><input className="input" value={form.event_name ?? ''} onChange={update('event_name')} required /></Field>
+            <Field label="Event date" required><input className="input" type="date" value={form.event_date ?? ''} onChange={update('event_date')} required /></Field>
+            <Field label="Total hours" required><input className="input" type="number" min="0.25" step="0.25" value={form.total_hours ?? ''} onChange={update('total_hours')} required /></Field>
+            <Field label="Primary approver" required><input className="input" value={form.approver_primary ?? ''} onChange={update('approver_primary')} required /></Field>
+            <Field label="Secondary approver"><input className="input" value={form.approver_secondary ?? ''} onChange={update('approver_secondary')} /></Field>
+            <div className="full btn-row"><button className="btn btn-outline" type="button" onClick={() => setCorrection(null)}>Cancel</button><button className="btn btn-primary" disabled={busy} type="submit">{busy ? <span className="spinner" /> : null} Send correction</button></div>
+          </form>
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -29,6 +29,7 @@ studentsRouter.get(
       ...r,
       total_hours: totals.get(r.id) ?? 0,
       pending_count: pending.get(r.id) ?? 0,
+      access_code: (db.prepare('SELECT code FROM access_codes WHERE student_id = ?').get(r.id) as { code: string } | undefined)?.code ?? null,
     }));
     if (search) rows = rows.filter((r) => `${r.first_name} ${r.last_name} ${r.email ?? ''}`.toLowerCase().includes(search));
     if (level) rows = rows.filter((r) => r.school_level === level);

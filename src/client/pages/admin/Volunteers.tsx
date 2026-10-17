@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { api, ApiError, staffToken } from '../../lib/api';
+import { api, ApiError } from '../../lib/api';
 import { useApi } from '../../lib/hooks';
 import { LEVEL_LABEL, STATUS_LABEL, fmtDate, fmtHours, medalProgress } from '../../lib/format';
 import { ConfirmDialog, EmptyState, ErrorNote, Field, Loading, Modal, ProgressBar, useToast } from '../../components/ui';
@@ -10,6 +10,7 @@ export default function Volunteers() {
   const [level, setLevel] = useState('');
   const [sort, setSort] = useState('name');
   const [includeInactive, setIncludeInactive] = useState(false);
+  const [view, setView] = useState<'volunteers' | 'pins'>('volunteers');
   const [openId, setOpenId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const { data: config } = useApi<any>('/api/config');
@@ -20,32 +21,18 @@ export default function Volunteers() {
   const { data, loading, error, reload } = useApi<any[]>(query);
   const toast = useToast();
 
-  const exportCsv = async () => {
-    const base = (import.meta as any).env?.VITE_API_BASE ?? '';
-    const res = await fetch(`${base}/api/admin/students/export.csv`, {
-      credentials: 'include',
-      headers: staffToken.get() ? { Authorization: 'Bearer ' + staffToken.get() } : undefined,
-    });
-    if (!res.ok) return toast('error', 'Export failed.');
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'volunteers.csv';
-    a.click();
-    URL.revokeObjectURL(url);
-    toast('success', 'CSV export downloaded.');
-  };
-
   return (
     <>
       <div className="admin-topbar">
         <h1>Volunteer Management</h1>
         <span className="spacer" />
-        <button className="btn btn-outline btn-sm" onClick={exportCsv}>Export CSV</button>
+        <div className="tabs" role="tablist">
+          <button className={view === 'volunteers' ? 'active' : ''} onClick={() => setView('volunteers')}>Volunteer records</button>
+          <button className={view === 'pins' ? 'active' : ''} onClick={() => setView('pins')}>Dedicated PIN directory</button>
+        </div>
         <button className="btn btn-primary btn-sm" onClick={() => setAdding(true)}><IconPlus width={15} height={15} /> Add student</button>
       </div>
-      <div className="toolbar">
+      {view === 'volunteers' ? <div className="toolbar">
         <input className="input" placeholder="Search name or email…" value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Search students" />
         <select className="input" value={level} onChange={(e) => setLevel(e.target.value)} aria-label="Filter by level">
           <option value="">All levels</option>
@@ -56,10 +43,18 @@ export default function Volunteers() {
           <option value="hours">Sort: approved hours</option>
         </select>
         <label className="row tiny muted" style={{ gap: 6 }}><input type="checkbox" checked={includeInactive} onChange={(e) => setIncludeInactive(e.target.checked)} /> include inactive</label>
-      </div>
+      </div> : <p className="muted small">Use this private directory to help a volunteer recover the dedicated PIN tied to their account. Never publish or export this list.</p>}
       {loading ? <Loading /> : null}
       {error ? <ErrorNote message={error} retry={reload} /> : null}
-      {data ? (
+      {data && view === 'pins' ? (
+        <div className="table-wrap">
+          <table className="table">
+            <thead><tr><th>Volunteer</th><th>Email</th><th>School level</th><th>Dedicated PIN</th></tr></thead>
+            <tbody>{data.map((s) => <tr key={s.id}><td><strong>{s.first_name} {s.last_name}</strong></td><td>{s.email || '—'}</td><td>{LEVEL_LABEL[s.school_level] ?? s.school_level}</td><td><span className="code-chip">{s.access_code || 'Not issued yet'}</span></td></tr>)}</tbody>
+          </table>
+        </div>
+      ) : null}
+      {data && view === 'volunteers' ? (
         <>
           <div className="table-wrap">
             <table className="table">

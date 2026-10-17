@@ -11,7 +11,7 @@ import {
 import { ah, ApiError } from '../lib/http.js';
 import { MEMBER_COOKIE, memberCookieValue, verifyMember, sessionCookieOptions, signMember } from '../lib/auth.js';
 import { rateLimit, HOUR } from '../lib/ratelimit.js';
-import { validateSubmission, createSubmission, hourRules } from '../lib/submissions.js';
+import { validateSubmission, createSubmission, correctSubmission, hourRules } from '../lib/submissions.js';
 
 export const publicRouter = Router();
 
@@ -181,6 +181,8 @@ publicRouter.get('/stats', ah(() => computeChapterStats()));
 publicRouter.get(
   '/directory',
   ah((req) => {
+    throw new ApiError(410, 'The public volunteer directory has been replaced by the private Ticket Status / Self Stats Tool Box.');
+    /*
     const visibility = getSetting<string>('directory_visibility');
     const isAdmin = !!req.admin;
     const memberRaw = memberCookieValue(req);
@@ -217,6 +219,7 @@ publicRouter.get(
       .filter((r) => !level || r.school_level === level)
       .sort((a, b) => b.total_hours - a.total_hours);
     return { visibility, count: out.length, students: out };
+    */
   })
 );
 
@@ -224,6 +227,8 @@ publicRouter.get(
 publicRouter.get(
   '/records',
   ah((req) => {
+    throw new ApiError(410, 'Public service records are disabled. Use your dedicated PIN in the Ticket Status / Self Stats Tool Box.');
+    /*
     const page = Math.max(1, parseInt(String(req.query.page ?? '1'), 10) || 1);
     const pageSize = Math.min(50, Math.max(5, parseInt(String(req.query.pageSize ?? '20'), 10) || 20));
     const search = String(req.query.search ?? '').trim().toLowerCase();
@@ -251,6 +256,7 @@ publicRouter.get(
       )
       .all(...params, pageSize, (page - 1) * pageSize) as any[];
     return { page, pageSize, total, pages: Math.max(1, Math.ceil(total / pageSize)), records };
+    */
   })
 );
 
@@ -268,6 +274,19 @@ publicRouter.post(
   })
 );
 
+publicRouter.post(
+  '/lookup/:code/submissions/:id/correct',
+  ah((req, res) => {
+    const rl = rateLimit(`correct:${req.ip}`, 12, HOUR);
+    if (!rl.ok) throw new ApiError(429, `Too many correction attempts. Try again in ${rl.retryInSec}s.`);
+    const { errors, normalized, computedHours } = validateSubmission(req.body ?? {});
+    if (!normalized) throw new ApiError(422, 'Please fix the highlighted fields.', errors);
+    const result = correctSubmission(req.params.id, String(req.params.code).trim().toUpperCase(), normalized, computedHours);
+    res.status(200);
+    return result;
+  })
+);
+
 /** Lookup by non-guessable tracking code: returns ONLY that student's own submissions. */
 publicRouter.get(
   '/lookup/:code',
@@ -278,7 +297,7 @@ publicRouter.get(
     if (!code) throw new ApiError(400, 'Tracking code required.');
     const link = db.prepare('SELECT student_id FROM access_codes WHERE code = ?').get(code) as { student_id: string } | undefined;
     if (!link) throw new ApiError(404, 'No submissions found for that tracking code. Check the code from your confirmation screen.');
-    const student = db.prepare('SELECT id, first_name, last_name, school_level FROM students WHERE id = ?').get(link.student_id) as any;
+    const student = db.prepare('SELECT id, first_name, last_name, email, school_level FROM students WHERE id = ?').get(link.student_id) as any;
     const submissions = db.prepare('SELECT * FROM submissions WHERE student_id = ? ORDER BY created_at DESC').all(link.student_id) as any[];
     const medals = getSetting<Record<string, { silver: number; gold: number }>>('medal_requirements');
     const total = approvedTotalFor(student.id);
@@ -302,6 +321,20 @@ publicRouter.get(
         total_hours: s.total_hours,
         status: s.status,
         feedback: s.status === 'declined' || s.status === 'correction_requested' ? s.decline_reason : null,
+        details: s.status === 'correction_requested' ? {
+          first_name: student.first_name,
+          last_name: student.last_name,
+          email: student.email,
+          school_level: student.school_level,
+          event_name: s.event_name,
+          event_type: s.event_type,
+          event_date: s.event_date,
+          start_time: s.start_time,
+          end_time: s.end_time,
+          total_hours: s.total_hours,
+          approver_primary: s.approver_primary,
+          approver_secondary: s.approver_secondary,
+        } : null,
         submitted_at: s.created_at,
         decided_at: s.decided_at,
       })),

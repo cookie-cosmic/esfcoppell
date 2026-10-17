@@ -2,9 +2,12 @@ import Database from 'better-sqlite3';
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import { fileURLToPath } from 'node:url';
 import { AsyncLocalStorage } from 'node:async_hooks';
 
-export const ROOT = path.resolve(new URL('.', import.meta.url).pathname, '../..');
+// URL.pathname keeps a leading slash before the drive letter on Windows ("/C:/...").
+// fileURLToPath normalizes it so the SQLite file remains in the project data directory across restarts.
+export const ROOT = path.resolve(fileURLToPath(new URL('.', import.meta.url)), '../..');
 export const DATA_DIR = process.env.DATA_DIR || path.join(ROOT, 'data');
 export const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join(DATA_DIR, 'uploads');
 export const DB_PATH = process.env.DB_PATH || path.join(DATA_DIR, 'app.db');

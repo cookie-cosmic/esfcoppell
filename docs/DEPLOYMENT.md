@@ -14,7 +14,7 @@ npm run create-admin          # interactive; or:
 NODE_ENV=production PORT=8080 COOKIE_SECURE=true MEMBER_COOKIE_SECRET="$(openssl rand -base64 32)" node dist-server/server/index.js
 ```
 
-Persistent volume: point `DATA_DIR` (SQLite file + uploads) at mounted storage.
+Persistent volume: point `DATA_DIR` (SQLite file + uploads) at mounted storage. The server normalizes its file URL correctly on Windows, and uses `data/app.db` by default; do not place the database in a disposable build/output directory.
 Health check: `GET /api/health`.
 
 Optional env-var bootstrap instead of CLI (one-time, only while no admin exists):
@@ -96,7 +96,7 @@ create the first owner on the API host with `npm run create-admin`.
 2. Owner signs in (hidden trigger: five clicks on the tiny footer smile icon within 3 s).
    Sign-in is **password-only** — the password is matched against active staff accounts,
    and the matched account becomes the audit identity.
-3. Review **Settings** (medal targets, hour rules, directory visibility, retention).
+3. Review **Settings** (medal targets and hour rules). Public volunteer records are disabled; volunteers use the PIN-protected Ticket Status / Self Stats Tool Box.
 4. Enter real content: Homepage Editor, Team, Events & Activities, Media Library.
    Skip `npm run seed:sample` in production (it is demo data and refuses to run over real
    student records).
