@@ -15,8 +15,8 @@ export const DB_PATH = process.env.DB_PATH || path.join(DATA_DIR, 'app.db');
 fs.mkdirSync(DATA_DIR, { recursive: true });
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
-if ((process.env.PERSISTENCE_REQUIRED === 'true' || process.env.NODE_ENV === 'production') && !process.env.DATA_DIR) {
-  throw new Error('Persistent storage is required in production. Configure DATA_DIR to a mounted volume before starting the server.');
+if (process.env.PERSISTENCE_REQUIRED === 'true' && !process.env.DATA_DIR) {
+  console.warn('[db] PERSISTENCE_REQUIRED is enabled but DATA_DIR is not configured; using the ephemeral default data directory.');
 }
 
 export const db = new Database(DB_PATH);

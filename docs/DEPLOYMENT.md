@@ -14,7 +14,7 @@ npm run create-admin          # interactive; or:
 NODE_ENV=production PORT=8080 COOKIE_SECURE=true MEMBER_COOKIE_SECRET="$(openssl rand -base64 32)" node dist-server/server/index.js
 ```
 
-Persistent volume: point `DATA_DIR` (SQLite file + uploads) at mounted storage. The included Render Blueprint mounts the disk at `/var/data`, stores the database under `/var/data/endless-smiles`, and sets `PERSISTENCE_REQUIRED=true`. The server logs and `/api/health` expose the active database path so a deployment can be verified before real data is entered. The server normalizes its file URL correctly on Windows, and uses `data/app.db` by default locally; do not place the database in a disposable build/output directory.
+Persistent volume: point `DATA_DIR` (SQLite file + uploads) at mounted storage when using SQLite. The included Render Blueprint is prepared for a paid Render disk, but free Render services remain ephemeral until the Supabase migration is enabled. The server logs and `/api/health` expose the active database path so a deployment can be verified. The server normalizes its file URL correctly on Windows, and uses `data/app.db` by default locally; do not place the database in a disposable build/output directory.
 Health check: `GET /api/health`.
 
 Optional env-var bootstrap instead of CLI (one-time, only while no admin exists):
