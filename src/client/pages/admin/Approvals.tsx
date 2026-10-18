@@ -47,12 +47,26 @@ export default function Approvals() {
         <h1>Approval Center</h1>
         <div className="tabs" role="tablist">
           <button className={tab === 'queue' ? 'active' : ''} onClick={() => { setTab('queue'); setStatus('pending'); }}>Approval queue</button>
-          <button className={tab === 'history' ? 'active' : ''} onClick={() => { setTab('history'); setStatus('approved'); }}>Approval history</button>
+          <button className={tab === 'history' ? 'active' : ''} onClick={() => { setTab('history'); setStatus('approved'); }}>Approver sheet</button>
         </div>
         <button className="btn btn-primary" onClick={() => { setTab('queue'); setStatus('pending'); setBulkPrompt(true); }}><IconCheck width={16} height={16} /> Mass approval</button>
         <a className="btn btn-outline" href={exportUrl}>Export CSV</a>
         <span className="muted small">Approvals are atomic, idempotent, and audited.</span>
       </div>
+      <section className="card card-pad" style={{ marginBottom: 16, border: '2px solid var(--crimson)' }}>
+        <div className="row" style={{ gap: 14, alignItems: 'center', flexWrap: 'wrap' }}>
+          <div style={{ flex: 1, minWidth: 240 }}>
+            <h3 style={{ margin: 0 }}>Mass approval</h3>
+            <p className="muted small" style={{ margin: '5px 0 0' }}>
+              Select submissions below, approve all visible pending hours, or approve every pending submission for an event.
+              You will enter the approver’s first and last name in the next window.
+            </p>
+          </div>
+          <button className="btn btn-primary" onClick={() => { setTab('queue'); setStatus('pending'); setBulkPrompt(true); }}>
+            <IconCheck width={18} height={18} /> MASS APPROVE
+          </button>
+        </div>
+      </section>
       <div className="toolbar">
         <select className="input" value={status} onChange={(e) => setStatus(e.target.value)} aria-label="Filter by status">
           <option value="pending">Pending + corrections</option>
@@ -91,7 +105,7 @@ export default function Approvals() {
         <>
           {tab === 'history' && approverSummary.length ? (
             <section className="card card-pad" style={{ marginBottom: 16 }}>
-              <h3 style={{ marginTop: 0 }}>Hours approved by</h3>
+              <h3 style={{ marginTop: 0 }}>Approver sheet — Hours approved by</h3>
               <div className="table-wrap">
                 <table className="table">
                   <thead><tr><th>Approver</th><th>People / submissions</th><th>Hours</th><th>Most recent approval</th></tr></thead>
