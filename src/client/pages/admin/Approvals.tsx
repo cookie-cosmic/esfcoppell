@@ -15,6 +15,7 @@ export default function Approvals() {
   const [openId, setOpenId] = useState<string | null>(null);
   const [selected, setSelected] = useState<string[]>([]);
   const [bulkPrompt, setBulkPrompt] = useState(false);
+  const [tab, setTab] = useState<'queue' | 'history'>('queue');
   const query = useMemo(
     () => `/api/admin/submissions?status=${encodeURIComponent(status)}&search=${encodeURIComponent(search)}&level=${encodeURIComponent(level)}&event=${encodeURIComponent(event)}&from=${from}&to=${to}`,
     [status, search, level, event, from, to]
@@ -38,12 +39,18 @@ export default function Approvals() {
     setSelected([]);
     reload();
   };
+  const exportUrl = `/api/admin/submissions/export.csv${tab === 'history' ? '?status=approved' : ''}`;
 
   return (
     <>
       <div className="admin-topbar">
         <h1>Approval Center</h1>
-        <span className="spacer" />
+        <div className="tabs" role="tablist">
+          <button className={tab === 'queue' ? 'active' : ''} onClick={() => { setTab('queue'); setStatus('pending'); }}>Approval queue</button>
+          <button className={tab === 'history' ? 'active' : ''} onClick={() => { setTab('history'); setStatus('approved'); }}>Approval history</button>
+        </div>
+        <button className="btn btn-primary" onClick={() => { setTab('queue'); setStatus('pending'); setBulkPrompt(true); }}><IconCheck width={16} height={16} /> Mass approval</button>
+        <a className="btn btn-outline" href={exportUrl}>Export CSV</a>
         <span className="muted small">Approvals are atomic, idempotent, and audited.</span>
       </div>
       <div className="toolbar">
@@ -66,7 +73,7 @@ export default function Approvals() {
         <label className="tiny muted">From <input className="input" type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></label>
         <label className="tiny muted">To <input className="input" type="date" value={to} onChange={(e) => setTo(e.target.value)} /></label>
       </div>
-      {pending.length ? (
+      {tab === 'queue' && pending.length ? (
         <div className="btn-row" style={{ marginBottom: 14 }}>
           <label className="small row" style={{ gap: 8 }}>
             <input type="checkbox" checked={allSelected} onChange={toggleAll} />
@@ -82,7 +89,7 @@ export default function Approvals() {
       {error ? <ErrorNote message={error} retry={reload} /> : null}
       {data ? (
         <>
-          {status === 'approved' && approverSummary.length ? (
+          {tab === 'history' && approverSummary.length ? (
             <section className="card card-pad" style={{ marginBottom: 16 }}>
               <h3 style={{ marginTop: 0 }}>Hours approved by</h3>
               <div className="table-wrap">
@@ -124,15 +131,17 @@ export default function Approvals() {
         </>
       ) : null}
       {openId ? <ReviewModal id={openId} onClose={() => setOpenId(null)} onChanged={onChanged} /> : null}
-      {bulkPrompt ? <BulkApprovalModal selectedIds={selected} eventName={event || undefined} onClose={() => setBulkPrompt(false)} onChanged={onChanged} /> : null}
+      {bulkPrompt ? <BulkApprovalModal selectedIds={selected} visibleIds={pending.map((s) => s.id)} eventNames={eventNames} defaultEvent={event} onClose={() => setBulkPrompt(false)} onChanged={onChanged} /> : null}
     </>
   );
 }
 
-function BulkApprovalModal({ selectedIds, eventName, onClose, onChanged }: { selectedIds: string[]; eventName?: string; onClose: () => void; onChanged: () => void }) {
+function BulkApprovalModal({ selectedIds, visibleIds, eventNames, defaultEvent, onClose, onChanged }: { selectedIds: string[]; visibleIds: string[]; eventNames: string[]; defaultEvent: string; onClose: () => void; onChanged: () => void }) {
   const toast = useToast();
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
+  const [scope, setScope] = useState<'selected' | 'visible' | 'event'>(selectedIds.length ? 'selected' : defaultEvent ? 'event' : 'visible');
+  const [eventName, setEventName] = useState(defaultEvent);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const approve = async () => {
@@ -143,8 +152,8 @@ function BulkApprovalModal({ selectedIds, eventName, onClose, onChanged }: { sel
     setBusy(true);
     try {
       const result = await api.post('/api/admin/submissions/bulk-approve', {
-        submission_ids: selectedIds,
-        event_name: eventName,
+        submission_ids: scope === 'selected' ? selectedIds : scope === 'visible' ? visibleIds : [],
+        event_name: scope === 'event' ? eventName : undefined,
         approval_first_name: firstName,
         approval_last_name: lastName,
       });
@@ -159,7 +168,15 @@ function BulkApprovalModal({ selectedIds, eventName, onClose, onChanged }: { sel
   };
   return (
     <Modal title="Who approved these hours?" onClose={onClose} footer={<><button className="btn btn-outline" onClick={onClose}>Cancel</button><button className="btn btn-primary" disabled={busy} onClick={approve}>{busy ? <span className="spinner" /> : null} Approve hours</button></>}>
-      <p className="muted small">This name is stored with every approved submission and shown in the approval history.</p>
+      <p className="muted small">Choose which pending hours to approve. The approver name is stored with every approved submission and shown in the approval history.</p>
+      <Field label="Mass approval scope">
+        <select className="input" value={scope} onChange={(e) => setScope(e.target.value as 'selected' | 'visible' | 'event')}>
+          <option value="selected" disabled={!selectedIds.length}>Selected submissions ({selectedIds.length})</option>
+          <option value="visible">All visible pending submissions ({visibleIds.length})</option>
+          <option value="event">All pending submissions for one event</option>
+        </select>
+      </Field>
+      {scope === 'event' ? <Field label="Event" required><select className="input" value={eventName} onChange={(e) => setEventName(e.target.value)}><option value="">Select an event…</option>{eventNames.map((name) => <option key={name} value={name}>{name}</option>)}</select></Field> : null}
       <div className="split">
         <Field label="First name" required><input className="input" value={firstName} onChange={(e) => setFirstName(e.target.value)} autoFocus /></Field>
         <Field label="Last name" required><input className="input" value={lastName} onChange={(e) => setLastName(e.target.value)} /></Field>

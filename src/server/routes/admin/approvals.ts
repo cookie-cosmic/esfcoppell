@@ -74,6 +74,39 @@ approvalsRouter.get(
   })
 );
 
+approvalsRouter.get(
+  '/submissions/export.csv',
+  ah((req, res) => {
+    requireRole(req, 'admin', 'owner');
+    const status = String(req.query.status ?? '').trim();
+    const params: unknown[] = [];
+    const where = status ? 'WHERE s.status = ?' : '';
+    if (status) params.push(status);
+    const rows = db.prepare(`
+      SELECT st.first_name, st.last_name, st.email, st.school_level,
+             s.event_name, s.event_date, s.event_type, s.total_hours,
+             s.status, s.created_at, s.decided_at,
+             COALESCE(s.approval_first_name || ' ' || s.approval_last_name, '') AS hours_approved_by,
+             COALESCE(a.name, '') AS reviewed_by_admin
+      FROM submissions s
+      JOIN students st ON st.id = s.student_id
+      LEFT JOIN admin_users a ON a.id = s.decided_by
+      ${where}
+      ORDER BY s.created_at DESC
+    `).all(...params) as any[];
+    const esc = (value: unknown) => `"${String(value ?? '').replace(/"/g, '""')}"`;
+    const headers = ['first_name', 'last_name', 'email', 'school_level', 'event_name', 'event_date', 'event_type', 'hours', 'status', 'submitted_at', 'approved_at', 'hours_approved_by', 'reviewed_by_admin'];
+    const csv = [headers.join(','), ...rows.map((row) => [
+      row.first_name, row.last_name, row.email, row.school_level, row.event_name, row.event_date,
+      row.event_type, row.total_hours, row.status, row.created_at, row.decided_at,
+      row.hours_approved_by, row.reviewed_by_admin,
+    ].map(esc).join(','))].join('\n');
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="approval-history-${new Date().toISOString().slice(0, 10)}.csv"`);
+    res.send(csv);
+  })
+);
+
 approvalsRouter.post(
   '/submissions/bulk-approve',
   ah((req, res) => {

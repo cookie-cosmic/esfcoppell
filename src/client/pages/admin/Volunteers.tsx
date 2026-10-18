@@ -31,6 +31,7 @@ export default function Volunteers() {
           <button className={view === 'pins' ? 'active' : ''} onClick={() => setView('pins')}>Dedicated PIN directory</button>
         </div>
         <button className="btn btn-primary btn-sm" onClick={() => setAdding(true)}><IconPlus width={15} height={15} /> Add student</button>
+        {view === 'volunteers' ? <a className="btn btn-outline btn-sm" href="/api/admin/students/export.csv">Export CSV</a> : null}
       </div>
       {view === 'volunteers' ? <div className="toolbar">
         <input className="input" placeholder="Search name or email…" value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Search students" />
