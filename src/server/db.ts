@@ -133,7 +133,9 @@ CREATE TABLE IF NOT EXISTS submissions (
   admin_note TEXT,
   created_at TEXT NOT NULL,
   decided_at TEXT,
-  decided_by TEXT REFERENCES admin_users(id) ON DELETE SET NULL
+  decided_by TEXT REFERENCES admin_users(id) ON DELETE SET NULL,
+  approval_first_name TEXT,
+  approval_last_name TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_submissions_status ON submissions(status);
 CREATE INDEX IF NOT EXISTS idx_submissions_student ON submissions(student_id);
@@ -267,6 +269,13 @@ if (!teamColumns.some((column) => column.name === 'photo_position')) {
 const eventColumns = db.prepare('PRAGMA table_info(events)').all() as { name: string }[];
 if (!eventColumns.some((column) => column.name === 'banner_size')) {
   db.exec("ALTER TABLE events ADD COLUMN banner_size TEXT NOT NULL DEFAULT 'standard'");
+}
+const submissionColumns = db.prepare('PRAGMA table_info(submissions)').all() as { name: string }[];
+if (!submissionColumns.some((column) => column.name === 'approval_first_name')) {
+  db.exec('ALTER TABLE submissions ADD COLUMN approval_first_name TEXT');
+}
+if (!submissionColumns.some((column) => column.name === 'approval_last_name')) {
+  db.exec('ALTER TABLE submissions ADD COLUMN approval_last_name TEXT');
 }
 
 await restoreCloudState(db, UPLOAD_DIR);

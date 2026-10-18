@@ -14,7 +14,7 @@ npm run create-admin          # interactive; or:
 NODE_ENV=production PORT=8080 COOKIE_SECURE=true MEMBER_COOKIE_SECRET="$(openssl rand -base64 32)" node dist-server/server/index.js
 ```
 
-Persistent volume: point `DATA_DIR` (SQLite file + uploads) at mounted storage when using SQLite. The application also supports durable Supabase persistence through the server-only `SUPABASE_DB_URL` variable. When that variable is present, the server restores every application table and uploaded media from Supabase during startup and schedules a durable snapshot after every successful write. The server logs and `/api/health` expose the active persistence backend so a deployment can be verified. The server normalizes its file URL correctly on Windows, and uses `data/app.db` by default locally; do not place the database in a disposable build/output directory.
+Persistent volume: point `DATA_DIR` (SQLite file + uploads) at mounted storage when using SQLite. The application also supports durable Supabase persistence through the server-only `SUPABASE_DB_URL` variable. When that variable is present, the server restores every application table and uploaded media from Supabase during startup and schedules a durable snapshot after every successful write. The production process also flushes any queued snapshot during graceful shutdown. The server logs and `/api/health` expose the active persistence backend so a deployment can be verified. The server normalizes its file URL correctly on Windows, and uses `data/app.db` by default locally; do not place the database in a disposable build/output directory.
 Health check: `GET /api/health`.
 
 Optional env-var bootstrap instead of CLI (one-time, only while no admin exists):

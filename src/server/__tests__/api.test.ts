@@ -173,7 +173,7 @@ test('owner can log in; reviewer role is enforced on settings', async () => {
 });
 
 test('reviewer can approve; approval is atomic, creates record, and is idempotent', async () => {
-  const first = await req('POST', `/api/admin/submissions/${submissionId}/approve`, { cookie: reviewerCookie, body: { note: 'verified via sign-in sheet' } });
+  const first = await req('POST', `/api/admin/submissions/${submissionId}/approve`, { cookie: reviewerCookie, body: { note: 'verified via sign-in sheet', approval_first_name: 'Jordan', approval_last_name: 'Lee' } });
   assert.equal(first.status, 200);
   assert.equal(first.json.idempotent, false);
   assert.equal(first.json.status, 'approved');
@@ -182,13 +182,15 @@ test('reviewer can approve; approval is atomic, creates record, and is idempoten
     (db.prepare(`SELECT COALESCE(SUM(hours),0) t FROM service_records WHERE status='active'`).get() as any).t;
   assert.equal(totalAfter(), 3);
 
-  const second = await req('POST', `/api/admin/submissions/${submissionId}/approve`, { cookie: reviewerCookie, body: {} });
+  const second = await req('POST', `/api/admin/submissions/${submissionId}/approve`, { cookie: reviewerCookie, body: { approval_first_name: 'Jordan', approval_last_name: 'Lee' } });
   assert.equal(second.status, 200);
   assert.equal(second.json.idempotent, true, 're-approval must be idempotent');
   assert.equal(totalAfter(), 3, 'hours must not double-count');
 
   const records = db.prepare('SELECT COUNT(*) n FROM service_records WHERE submission_id = ?').get(submissionId) as any;
   assert.equal(records.n, 1);
+  const attribution = db.prepare('SELECT approval_first_name, approval_last_name FROM submissions WHERE id = ?').get(submissionId) as any;
+  assert.deepEqual(attribution, { approval_first_name: 'Jordan', approval_last_name: 'Lee' });
 
   const decisions = db.prepare(`SELECT COUNT(*) n FROM decisions WHERE submission_id = ? AND action = 'approve'`).get(submissionId) as any;
   assert.equal(decisions.n, 1, 'unique approval decision enforced');
@@ -250,7 +252,7 @@ test('manual hours require a reason and are audited', async () => {
 test('medal requirements respect school level (middle: 50/100)', async () => {
   const sub = await req('POST', '/api/submissions', { body: submission({ email: 'mid@example.org', school_level: 'middle', event_name: 'STEAM Camp', event_date: '2026-08-01', start_time: '09:00', end_time: '12:00', total_hours: 3 }) });
   assert.equal(sub.status, 201);
-  await req('POST', `/api/admin/submissions/${sub.json.submission_id}/approve`, { cookie: ownerCookie, body: {} });
+  await req('POST', `/api/admin/submissions/${sub.json.submission_id}/approve`, { cookie: ownerCookie, body: { approval_first_name: 'Jordan', approval_last_name: 'Lee' } });
   const lookup = await req('GET', `/api/lookup/${sub.json.access_code}`);
   assert.equal(lookup.json.medals.silver.target, 50);
   assert.equal(lookup.json.medals.gold.target, 100);
@@ -317,6 +319,23 @@ test('audit log has no mutation endpoints exposed', async () => {
   assert.equal(put.status, 404);
   const del = await req('DELETE', '/api/admin/audit', { cookie: ownerCookie });
   assert.equal(del.status, 404);
+});
+
+test('bulk approval records approver attribution for selected submissions', async () => {
+  const first = await req('POST', '/api/submissions', { body: submission({ email: 'bulk-one@example.org', event_name: 'Bulk Event', event_date: '2026-10-01' }) });
+  const second = await req('POST', '/api/submissions', { body: submission({ email: 'bulk-two@example.org', event_name: 'Bulk Event', event_date: '2026-10-02' }) });
+  const result = await req('POST', '/api/admin/submissions/bulk-approve', {
+    cookie: reviewerCookie,
+    body: {
+      submission_ids: [first.json.submission_id, second.json.submission_id],
+      approval_first_name: 'Taylor',
+      approval_last_name: 'Morgan',
+    },
+  });
+  assert.equal(result.status, 200);
+  assert.equal(result.json.approved, 2);
+  const rows = db.prepare(`SELECT COUNT(*) AS n FROM submissions WHERE event_name = 'Bulk Event' AND approval_first_name = 'Taylor' AND approval_last_name = 'Morgan' AND status = 'approved'`).get() as any;
+  assert.equal(rows.n, 2);
 });
 
 test('cleanup', async () => {

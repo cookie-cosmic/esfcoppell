@@ -253,13 +253,22 @@ export interface DecisionResult {
   record_id?: string;
 }
 
+export interface ApprovalAttribution {
+  first_name: string;
+  last_name: string;
+}
+
 /**
  * Approve a pending submission. Atomic + idempotent:
  *  - unique partial index on decisions(action='approve') and UNIQUE(service_records.submission_id)
  *    guarantee hours can never be counted twice, even under repeated/concurrent requests.
  */
-export function approveSubmission(submissionId: string, admin: AdminPrincipal, note?: string): DecisionResult {
-  return db.transaction(() => {
+function approveSubmissionInTransaction(
+  submissionId: string,
+  admin: AdminPrincipal,
+  attribution: ApprovalAttribution,
+  note?: string
+): DecisionResult {
     const sub = db.prepare('SELECT * FROM submissions WHERE id = ?').get(submissionId) as
       | { id: string; status: string; student_id: string; event_name: string; event_date: string; event_type: string; total_hours: number }
       | undefined;
@@ -272,8 +281,8 @@ export function approveSubmission(submissionId: string, admin: AdminPrincipal, n
       throw new ApiError(409, `Cannot approve a submission with status "${sub.status}".`);
     }
     const ts = nowIso();
-    db.prepare('UPDATE submissions SET status = ?, decided_at = ?, decided_by = ?, admin_note = COALESCE(?, admin_note) WHERE id = ?')
-      .run('approved', ts, admin.id, note ?? null, submissionId);
+    db.prepare('UPDATE submissions SET status = ?, decided_at = ?, decided_by = ?, admin_note = COALESCE(?, admin_note), approval_first_name = ?, approval_last_name = ? WHERE id = ?')
+      .run('approved', ts, admin.id, note ?? null, attribution.first_name, attribution.last_name, submissionId);
     db.prepare('INSERT INTO decisions (id, submission_id, admin_id, action, reason, created_at) VALUES (?,?,?,?,?,?)').run(
       newId('dec'),
       submissionId,
@@ -293,6 +302,42 @@ export function approveSubmission(submissionId: string, admin: AdminPrincipal, n
       record_id: recordId,
     });
     return { idempotent: false, submission_id: sub.id, status: 'approved', record_id: recordId };
+}
+
+export function approveSubmission(
+  submissionId: string,
+  admin: AdminPrincipal,
+  attribution: ApprovalAttribution,
+  note?: string
+): DecisionResult {
+  return db.transaction(() => approveSubmissionInTransaction(submissionId, admin, attribution, note))();
+}
+
+export function approveSubmissions(
+  submissionIds: string[],
+  eventName: string | undefined,
+  admin: AdminPrincipal,
+  attribution: ApprovalAttribution,
+  note?: string
+) {
+  return db.transaction(() => {
+    const ids = [...new Set(submissionIds.filter(Boolean))];
+    if (eventName) {
+      const rows = db.prepare(
+        `SELECT id FROM submissions
+         WHERE event_name = ? AND status IN ('pending', 'correction_requested')
+         ORDER BY created_at`
+      ).all(eventName) as { id: string }[];
+      ids.push(...rows.map((row) => row.id));
+    }
+    const uniqueIds = [...new Set(ids)];
+    if (!uniqueIds.length) throw new ApiError(400, 'Select at least one submission or choose an event.');
+    const results = uniqueIds.map((id) => approveSubmissionInTransaction(id, admin, attribution, note));
+    return {
+      approved: results.filter((result) => !result.idempotent).length,
+      already_approved: results.filter((result) => result.idempotent).length,
+      results,
+    };
   })();
 }
 

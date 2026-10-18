@@ -19,11 +19,11 @@
     "reset-admin-password": "node dist-server/server/cli/reset-admin-password.js",
     "seed:sample": "node dist-server/server/cli/seed-sample.js",
     "reset:clean": "node dist-server/server/cli/reset-clean.js",
-    "test": "npm run build:server && node --test dist-server/server/__tests__/",
+    "test": "npm run build:server && node --test dist-server/server/__tests__/*.test.js",
     "lint": "tsc -p tsconfig.server.json --noEmit && tsc -p tsconfig.client.json --noEmit"
   },
   "dependencies": {
-    "better-sqlite3": "^11.10.0",
+    "better-sqlite3": "^12.4.1",
     "cookie-parser": "^1.4.7",
     "express": "^4.21.2",
     "multer": "^2.0.1",

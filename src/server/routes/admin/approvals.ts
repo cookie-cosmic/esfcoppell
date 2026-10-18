@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { db, computeChapterStats } from '../../db.js';
 import { ah, ApiError } from '../../lib/http.js';
 import { requireAdmin, requireRole } from '../../lib/auth.js';
-import { approveSubmission, declineSubmission, requestCorrection, addReviewNote } from '../../lib/submissions.js';
+import { approveSubmission, approveSubmissions, declineSubmission, requestCorrection, addReviewNote } from '../../lib/submissions.js';
 
 export const approvalsRouter = Router();
 
@@ -64,12 +64,27 @@ approvalsRouter.get(
       params.push(to);
     }
     const sql = `
-      SELECT s.*, st.first_name, st.last_name, st.email, st.school_level
+      SELECT s.*, st.first_name, st.last_name, st.email, st.school_level,
+        s.approval_first_name, s.approval_last_name
       FROM submissions s JOIN students st ON st.id = s.student_id
       ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
       ORDER BY CASE s.status WHEN 'pending' THEN 0 WHEN 'correction_requested' THEN 1 ELSE 2 END, s.created_at DESC
       LIMIT 300`;
     return db.prepare(sql).all(...params);
+  })
+);
+
+approvalsRouter.post(
+  '/submissions/bulk-approve',
+  ah((req, res) => {
+    const admin = requireRole(req, 'reviewer', 'admin', 'owner');
+    const firstName = typeof req.body?.approval_first_name === 'string' ? req.body.approval_first_name.trim().slice(0, 80) : '';
+    const lastName = typeof req.body?.approval_last_name === 'string' ? req.body.approval_last_name.trim().slice(0, 80) : '';
+    if (!firstName || !lastName) throw new ApiError(422, 'Approver first and last name are required.');
+    const ids = Array.isArray(req.body?.submission_ids) ? req.body.submission_ids.filter((id: unknown): id is string => typeof id === 'string') : [];
+    const eventName = typeof req.body?.event_name === 'string' && req.body.event_name.trim() ? req.body.event_name.trim() : undefined;
+    const note = typeof req.body?.note === 'string' ? req.body.note.slice(0, 500) : undefined;
+    return approveSubmissions(ids, eventName, admin, { first_name: firstName, last_name: lastName }, note);
   })
 );
 
@@ -94,8 +109,11 @@ approvalsRouter.post(
   '/submissions/:id/approve',
   ah((req, res) => {
     const admin = requireRole(req, 'reviewer', 'admin', 'owner');
+    const firstName = typeof req.body?.approval_first_name === 'string' ? req.body.approval_first_name.trim().slice(0, 80) : '';
+    const lastName = typeof req.body?.approval_last_name === 'string' ? req.body.approval_last_name.trim().slice(0, 80) : '';
+    if (!firstName || !lastName) throw new ApiError(422, 'Approver first and last name are required.');
     const note = typeof req.body?.note === 'string' ? req.body.note.slice(0, 500) : undefined;
-    return approveSubmission(req.params.id, admin, note);
+    return approveSubmission(req.params.id, admin, { first_name: firstName, last_name: lastName }, note);
   })
 );
 
@@ -134,4 +152,3 @@ approvalsRouter.get(
     return db.prepare('SELECT * FROM audit_logs ORDER BY created_at DESC LIMIT ?').all(limit);
   })
 );
-

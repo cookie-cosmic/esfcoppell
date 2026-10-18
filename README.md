@@ -11,14 +11,20 @@ media library, settings, and Change History with version restore).
 |-----------|------------|
 | Frontend  | React 18 + TypeScript + Vite (SPA, react-router) |
 | Backend   | Node 20 + Express + TypeScript |
-| Database  | SQLite via `better-sqlite3` (file-backed, transactions, constraints) |
+| Database  | SQLite-compatible application layer with optional Supabase Postgres persistence |
 | Auth      | Server-side sessions (httpOnly cookies), scrypt password hashing, role-based authorization |
 | Storage   | Local disk `data/uploads/` with server-side magic-byte image validation |
 
-A production alternative using **Supabase (Postgres + Auth + Storage + RLS)** is provided in
-`supabase/migrations/0001_init.sql` with row-level-security policies; see `docs/DEPLOYMENT.md`.
+Production Render deployments use **Supabase Postgres persistence** through the server-only
+`SUPABASE_DB_URL` variable. The Express routes continue using the SQLite-compatible local
+layer while snapshots and uploaded media are stored durably in Supabase. The normalized
+Supabase Auth/RLS schema is also provided in `supabase/migrations/0001_init.sql`; see
+`docs/DEPLOYMENT.md` for the distinction and setup instructions.
 
 ## Quickstart
+
+Use Node 20 for production (the Render service is pinned to Node 20); Node 24 is also
+supported for local development by the current `better-sqlite3` release.
 
 ```bash
 npm install

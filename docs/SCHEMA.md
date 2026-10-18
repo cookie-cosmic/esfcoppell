@@ -11,7 +11,7 @@ A Supabase/Postgres equivalent with RLS lives in `supabase/migrations/0001_init.
 | `sessions` | Server-side admin sessions | FK→admin_users CASCADE, `expires_at` enforced on read |
 | `students` | Volunteer records | stable `id` PK; `active` soft-delete flag |
 | `access_codes` | Non-guessable per-student lookup codes | unique code, unique student |
-| `submissions` | Hour submissions | `status IN (pending, approved, declined, correction_requested)` default pending; `total_hours CHECK (>0, <=24)` |
+| `submissions` | Hour submissions | `status IN (pending, approved, declined, correction_requested)` default pending; `total_hours CHECK (>0, <=24)`; approved rows retain approver first/last name and decision timestamp |
 | `decisions` | Reviewer decision history | `action IN (approve, decline, request_correction, reverse, restore, correct, note)`; **partial unique index** `(submission_id) WHERE action='approve'` |
 | `service_records` | Authoritative approved hours | `status IN (active, reversed)`; **unique** `submission_id`; `hours CHECK (>0, <=24)`; `source IN (submission, manual)`; reason required by app logic for manual/reverse/restore/correct |
 | `events` | Chapter events | `status IN (draft, published, canceled, completed, archived)` |

@@ -13,11 +13,31 @@ export default function Approvals() {
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
   const [openId, setOpenId] = useState<string | null>(null);
+  const [selected, setSelected] = useState<string[]>([]);
+  const [bulkPrompt, setBulkPrompt] = useState(false);
   const query = useMemo(
     () => `/api/admin/submissions?status=${encodeURIComponent(status)}&search=${encodeURIComponent(search)}&level=${encodeURIComponent(level)}&event=${encodeURIComponent(event)}&from=${from}&to=${to}`,
     [status, search, level, event, from, to]
   );
   const { data, loading, error, reload } = useApi<any[]>(query);
+  const pending = (data ?? []).filter((s) => s.status === 'pending' || s.status === 'correction_requested');
+  const eventNames = [...new Set(pending.map((s) => s.event_name as string))].sort();
+  const approverSummary = Object.values((data ?? []).filter((s) => s.status === 'approved' && s.approval_first_name).reduce((groups: Record<string, { name: string; count: number; hours: number; latest: string }>, s) => {
+    const name = `${s.approval_first_name} ${s.approval_last_name}`;
+    const current = groups[name] ?? { name, count: 0, hours: 0, latest: s.decided_at };
+    current.count += 1;
+    current.hours += Number(s.total_hours) || 0;
+    if (s.decided_at > current.latest) current.latest = s.decided_at;
+    groups[name] = current;
+    return groups;
+  }, {})).sort((a, b) => b.latest.localeCompare(a.latest));
+  const allSelected = pending.length > 0 && pending.every((s) => selected.includes(s.id));
+  const toggleAll = () => setSelected(allSelected ? [] : pending.map((s) => s.id));
+  const toggleSelected = (id: string) => setSelected((current) => current.includes(id) ? current.filter((value) => value !== id) : [...current, id]);
+  const onChanged = () => {
+    setSelected([]);
+    reload();
+  };
 
   return (
     <>
@@ -35,7 +55,10 @@ export default function Approvals() {
           <option value="correction_requested">Correction requested</option>
         </select>
         <input className="input" placeholder="Search student…" value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Search student" />
-        <input className="input" placeholder="Event name…" value={event} onChange={(e) => setEvent(e.target.value)} aria-label="Filter by event" />
+        <select className="input" value={event} onChange={(e) => setEvent(e.target.value)} aria-label="Filter by event">
+          <option value="">All events</option>
+          {eventNames.map((name) => <option key={name} value={name}>{name}</option>)}
+        </select>
         <select className="input" value={level} onChange={(e) => setLevel(e.target.value)} aria-label="Filter by level">
           <option value="">All levels</option>
           {Object.entries(LEVEL_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
@@ -43,10 +66,33 @@ export default function Approvals() {
         <label className="tiny muted">From <input className="input" type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></label>
         <label className="tiny muted">To <input className="input" type="date" value={to} onChange={(e) => setTo(e.target.value)} /></label>
       </div>
+      {pending.length ? (
+        <div className="btn-row" style={{ marginBottom: 14 }}>
+          <label className="small row" style={{ gap: 8 }}>
+            <input type="checkbox" checked={allSelected} onChange={toggleAll} />
+            Select all visible pending hours
+          </label>
+          <button className="btn btn-primary btn-sm" disabled={!selected.length} onClick={() => setBulkPrompt(true)}>
+            <IconCheck width={15} height={15} /> Approve selected ({selected.length})
+          </button>
+          {event ? <button className="btn btn-outline btn-sm" onClick={() => setBulkPrompt(true)}>Approve all for “{event}”</button> : null}
+        </div>
+      ) : null}
       {loading ? <Loading /> : null}
       {error ? <ErrorNote message={error} retry={reload} /> : null}
       {data ? (
         <>
+          {status === 'approved' && approverSummary.length ? (
+            <section className="card card-pad" style={{ marginBottom: 16 }}>
+              <h3 style={{ marginTop: 0 }}>Hours approved by</h3>
+              <div className="table-wrap">
+                <table className="table">
+                  <thead><tr><th>Approver</th><th>People / submissions</th><th>Hours</th><th>Most recent approval</th></tr></thead>
+                  <tbody>{approverSummary.map((summary) => <tr key={summary.name}><td><strong>{summary.name}</strong></td><td>{summary.count}</td><td>{fmtHours(summary.hours)}h</td><td>{new Date(summary.latest).toLocaleString()}</td></tr>)}</tbody>
+                </table>
+              </div>
+            </section>
+          ) : null}
           <div className="table-wrap">
             <table className="table">
               <thead>
@@ -55,13 +101,19 @@ export default function Approvals() {
               <tbody>
                 {data.map((s) => (
                   <tr key={s.id}>
-                    <td><strong>{s.first_name} {s.last_name}</strong><div className="tiny muted">{s.email}</div></td>
+                    <td>
+                      {(s.status === 'pending' || s.status === 'correction_requested') ? <input type="checkbox" checked={selected.includes(s.id)} onChange={() => toggleSelected(s.id)} aria-label={`Select ${s.first_name} ${s.last_name}`} /> : null}
+                      {' '}<strong>{s.first_name} {s.last_name}</strong><div className="tiny muted">{s.email}</div>
+                    </td>
                     <td>{LEVEL_LABEL[s.school_level] ?? s.school_level}</td>
                     <td>{s.event_name}<div className="tiny muted">{s.event_type}</div></td>
                     <td>{fmtDate(s.event_date)}</td>
                     <td className="small">{s.start_time ?? '—'} → {s.end_time ?? '—'}</td>
                     <td><strong>{fmtHours(s.total_hours)}</strong>{s.computed_hours !== null && s.computed_hours !== s.total_hours ? <div className="tiny" style={{ color: 'var(--amber)' }}>computed {fmtHours(s.computed_hours)}</div> : null}</td>
-                    <td><span className={`badge ${s.status}`}>{STATUS_LABEL[s.status]}</span></td>
+                    <td>
+                      <span className={`badge ${s.status}`}>{STATUS_LABEL[s.status]}</span>
+                      {s.status === 'approved' && s.approval_first_name ? <div className="tiny muted">Approved by {s.approval_first_name} {s.approval_last_name}<br />{new Date(s.decided_at).toLocaleString()}</div> : null}
+                    </td>
                     <td><button className="btn btn-sm btn-outline" onClick={() => setOpenId(s.id)}>Review</button></td>
                   </tr>
                 ))}
@@ -71,8 +123,49 @@ export default function Approvals() {
           {!data.length ? <EmptyState glyph="✅" title="Queue is clear" body="No submissions match the current filters." /> : null}
         </>
       ) : null}
-      {openId ? <ReviewModal id={openId} onClose={() => setOpenId(null)} onChanged={reload} /> : null}
+      {openId ? <ReviewModal id={openId} onClose={() => setOpenId(null)} onChanged={onChanged} /> : null}
+      {bulkPrompt ? <BulkApprovalModal selectedIds={selected} eventName={event || undefined} onClose={() => setBulkPrompt(false)} onChanged={onChanged} /> : null}
     </>
+  );
+}
+
+function BulkApprovalModal({ selectedIds, eventName, onClose, onChanged }: { selectedIds: string[]; eventName?: string; onClose: () => void; onChanged: () => void }) {
+  const toast = useToast();
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const approve = async () => {
+    if (!firstName.trim() || !lastName.trim()) {
+      setError('Enter the approver’s first and last name.');
+      return;
+    }
+    setBusy(true);
+    try {
+      const result = await api.post('/api/admin/submissions/bulk-approve', {
+        submission_ids: selectedIds,
+        event_name: eventName,
+        approval_first_name: firstName,
+        approval_last_name: lastName,
+      });
+      toast('success', `${result.approved} submission${result.approved === 1 ? '' : 's'} approved.`);
+      onClose();
+      onChanged();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'Bulk approval failed.');
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Modal title="Who approved these hours?" onClose={onClose} footer={<><button className="btn btn-outline" onClick={onClose}>Cancel</button><button className="btn btn-primary" disabled={busy} onClick={approve}>{busy ? <span className="spinner" /> : null} Approve hours</button></>}>
+      <p className="muted small">This name is stored with every approved submission and shown in the approval history.</p>
+      <div className="split">
+        <Field label="First name" required><input className="input" value={firstName} onChange={(e) => setFirstName(e.target.value)} autoFocus /></Field>
+        <Field label="Last name" required><input className="input" value={lastName} onChange={(e) => setLastName(e.target.value)} /></Field>
+      </div>
+      {error ? <p className="error" role="alert">{error}</p> : null}
+    </Modal>
   );
 }
 
@@ -82,13 +175,19 @@ function ReviewModal({ id, onClose, onChanged }: { id: string; onClose: () => vo
   const [confirm, setConfirm] = useState<null | 'approve' | 'decline' | 'correct'>(null);
   const [reason, setReason] = useState('');
   const [note, setNote] = useState('');
+  const [approvalFirstName, setApprovalFirstName] = useState('');
+  const [approvalLastName, setApprovalLastName] = useState('');
   const [busy, setBusy] = useState(false);
 
   const act = async (kind: 'approve' | 'decline' | 'correct' | 'note') => {
     setBusy(true);
     try {
       if (kind === 'approve') {
-        const res = await api.post(`/api/admin/submissions/${id}/approve`, { note: note || undefined });
+        const res = await api.post(`/api/admin/submissions/${id}/approve`, {
+          note: note || undefined,
+          approval_first_name: approvalFirstName,
+          approval_last_name: approvalLastName,
+        });
         toast('success', res.idempotent ? 'Already approved earlier — no hours were double-counted.' : 'Submission approved; hours added to official totals.');
       } else if (kind === 'decline') {
         await api.post(`/api/admin/submissions/${id}/decline`, { reason });
@@ -103,6 +202,8 @@ function ReviewModal({ id, onClose, onChanged }: { id: string; onClose: () => vo
       setConfirm(null);
       setReason('');
       setNote('');
+      setApprovalFirstName('');
+      setApprovalLastName('');
       reload();
       onChanged();
     } catch (e) {
@@ -128,6 +229,7 @@ function ReviewModal({ id, onClose, onChanged }: { id: string; onClose: () => vo
             <dt>Reported hours</dt><dd><strong>{fmtHours(s.total_hours)}</strong></dd>
             <dt>Approvers</dt><dd>{s.approver_primary}{s.approver_secondary ? ` · ${s.approver_secondary}` : ''}</dd>
             <dt>Submitted</dt><dd>{new Date(s.created_at).toLocaleString()}</dd>
+            {s.approval_first_name ? <><dt>Hours approved by</dt><dd>{s.approval_first_name} {s.approval_last_name} · {s.decided_at ? new Date(s.decided_at).toLocaleString() : '—'}</dd></> : null}
             {s.decline_reason ? <><dt>Feedback</dt><dd>{s.decline_reason}</dd></> : null}
           </dl>
           <div className="split" style={{ marginTop: 18 }}>
@@ -188,14 +290,13 @@ function ReviewModal({ id, onClose, onChanged }: { id: string; onClose: () => vo
         </>
       ) : null}
       {confirm === 'approve' ? (
-        <ConfirmDialog
-          title="Approve these hours?"
-          body={<>This will add <strong>{fmtHours(s?.total_hours ?? 0)} hours</strong> to {s?.first_name} {s?.last_name}’s official total and create a service record. The operation is idempotent — approving twice never double-counts.</>}
-          confirmLabel="Approve hours"
-          busy={busy}
-          onCancel={() => setConfirm(null)}
-          onConfirm={() => act('approve')}
-        />
+        <Modal title="Who approved these hours?" onClose={() => setConfirm(null)} footer={<><button className="btn btn-outline" onClick={() => setConfirm(null)}>Cancel</button><button className="btn btn-primary" disabled={busy} onClick={() => act('approve')}>{busy ? <span className="spinner" /> : null} Approve hours</button></>}>
+          <p className="muted small">This will add <strong>{fmtHours(s?.total_hours ?? 0)} hours</strong> to {s?.first_name} {s?.last_name} and store the approver in the approval history.</p>
+          <div className="split">
+            <Field label="First name" required><input className="input" value={approvalFirstName} onChange={(e) => setApprovalFirstName(e.target.value)} autoFocus /></Field>
+            <Field label="Last name" required><input className="input" value={approvalLastName} onChange={(e) => setApprovalLastName(e.target.value)} /></Field>
+          </div>
+        </Modal>
       ) : null}
     </Modal>
   );

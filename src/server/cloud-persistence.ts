@@ -50,6 +50,7 @@ const pool = enabled
 
 let syncTimer: NodeJS.Timeout | null = null;
 let syncInFlight: Promise<void> | null = null;
+let pendingSnapshot: (() => Promise<void>) | null = null;
 
 function readSnapshot(db: SqliteDatabase): Snapshot {
   return Object.fromEntries(TABLES.map((table) => [table, db.prepare(`SELECT * FROM "${table}"`).all()])) as Snapshot;
@@ -153,10 +154,14 @@ export function cloudPersistenceEnabled() {
 
 export function scheduleCloudSnapshot(db: SqliteDatabase, uploadDir: string) {
   if (!pool) return;
+  pendingSnapshot = () => writeCloudState(db, uploadDir);
   if (syncTimer) clearTimeout(syncTimer);
   syncTimer = setTimeout(() => {
     syncTimer = null;
-    syncInFlight = writeCloudState(db, uploadDir)
+    const snapshot = pendingSnapshot;
+    pendingSnapshot = null;
+    if (!snapshot) return;
+    syncInFlight = snapshot()
       .catch((error) => console.error('[db] Supabase persistence sync failed', error))
       .finally(() => {
         syncInFlight = null;
@@ -165,5 +170,18 @@ export function scheduleCloudSnapshot(db: SqliteDatabase, uploadDir: string) {
 }
 
 export async function flushCloudSnapshot() {
+  if (syncTimer) {
+    clearTimeout(syncTimer);
+    syncTimer = null;
+    const snapshot = pendingSnapshot;
+    pendingSnapshot = null;
+    if (snapshot) {
+      syncInFlight = snapshot()
+        .catch((error) => console.error('[db] Supabase persistence sync failed', error))
+        .finally(() => {
+          syncInFlight = null;
+        });
+    }
+  }
   if (syncInFlight) await syncInFlight;
 }
