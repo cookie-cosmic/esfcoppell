@@ -124,9 +124,10 @@ function StudentModal({ id, onClose, onChanged, config }: { id: string; onClose:
   const toast = useToast();
   const [tab, setTab] = useState<'records' | 'submissions' | 'edit'>('records');
   const [manual, setManual] = useState({ event_name: '', event_date: '', hours: '', event_type: 'synchronous', reason: '' });
-  const [recordAction, setRecordAction] = useState<null | { kind: 'reverse' | 'restore' | 'correct'; record: any }>(null);
+  const [recordAction, setRecordAction] = useState<null | { kind: 'reverse' | 'restore' | 'correct' | 'permanent'; record: any }>(null);
   const [reason, setReason] = useState('');
   const [correctHours, setCorrectHours] = useState('');
+  const [deleteConfirmation, setDeleteConfirmation] = useState('');
   const [deactivate, setDeactivate] = useState(false);
   const [busy, setBusy] = useState(false);
 
@@ -150,8 +151,12 @@ function StudentModal({ id, onClose, onChanged, config }: { id: string; onClose:
 
   const runRecordAction = async () => {
     if (!recordAction) return;
-    if (reason.trim().length < 3) {
+    if (recordAction.kind !== 'permanent' && reason.trim().length < 3) {
       toast('error', 'A reason (at least 3 characters) is required for the audit log.');
+      return;
+    }
+    if (recordAction.kind === 'permanent' && deleteConfirmation !== 'DELETE') {
+      toast('error', 'Type DELETE to permanently remove this record.');
       return;
     }
     setBusy(true);
@@ -159,9 +164,11 @@ function StudentModal({ id, onClose, onChanged, config }: { id: string; onClose:
       if (recordAction.kind === 'reverse') await api.post(`/api/admin/students/records/${recordAction.record.id}/reverse`, { reason });
       if (recordAction.kind === 'restore') await api.post(`/api/admin/students/records/${recordAction.record.id}/restore`, { reason });
       if (recordAction.kind === 'correct') await api.patch(`/api/admin/students/records/${recordAction.record.id}`, { hours: Number(correctHours), reason });
-      toast('success', `Record ${recordAction.kind === 'correct' ? 'corrected' : recordAction.kind === 'reverse' ? 'reversed' : 'restored'} — medal progress recalculated.`);
+      if (recordAction.kind === 'permanent') await api.del(`/api/admin/students/records/${recordAction.record.id}?permanent=true&confirm=DELETE`);
+      toast('success', `Record ${recordAction.kind === 'permanent' ? 'permanently deleted' : recordAction.kind === 'correct' ? 'corrected' : recordAction.kind === 'reverse' ? 'reversed' : 'restored'} — medal progress recalculated.`);
       setRecordAction(null);
       setReason('');
+      setDeleteConfirmation('');
       reload();
       onChanged();
     } catch (e) {
@@ -233,6 +240,7 @@ function StudentModal({ id, onClose, onChanged, config }: { id: string; onClose:
                             {r.status === 'active'
                               ? <button className="btn btn-sm btn-danger" onClick={() => setRecordAction({ kind: 'reverse', record: r })}>Reverse</button>
                               : <button className="btn btn-sm btn-outline" onClick={() => setRecordAction({ kind: 'restore', record: r })}>Restore</button>}
+                            <button className="btn btn-sm btn-danger" onClick={() => setRecordAction({ kind: 'permanent', record: r })}>Permanent delete</button>
                           </div>
                         </td>
                       </tr>
@@ -296,10 +304,17 @@ function StudentModal({ id, onClose, onChanged, config }: { id: string; onClose:
 
       {recordAction ? (
         <ConfirmDialog
-          title={recordAction.kind === 'correct' ? 'Correct approved hours' : recordAction.kind === 'reverse' ? 'Reverse this approval?' : 'Restore this record?'}
+          title={recordAction.kind === 'permanent' ? 'Permanently delete this test record?' : recordAction.kind === 'correct' ? 'Correct approved hours' : recordAction.kind === 'reverse' ? 'Reverse this approval?' : 'Restore this record?'}
           body={
             <>
-              {recordAction.kind === 'reverse' ? (
+              {recordAction.kind === 'permanent' ? (
+                <>
+                  <p>This cannot be undone. The service record will be removed from the database and totals will be recalculated.</p>
+                  <Field label="Type DELETE to confirm" required>
+                    <input className="input" value={deleteConfirmation} onChange={(e) => setDeleteConfirmation(e.target.value)} placeholder="DELETE" />
+                  </Field>
+                </>
+              ) : recordAction.kind === 'reverse' ? (
                 <p>The hours will stop counting toward totals and medal progress. The submission returns to pending. This is recorded in the audit log.</p>
               ) : recordAction.kind === 'restore' ? (
                 <p>The record becomes active again and its hours count toward totals once more.</p>
@@ -309,15 +324,15 @@ function StudentModal({ id, onClose, onChanged, config }: { id: string; onClose:
                   <input className="input" type="number" step="0.25" min="0.25" max="24" value={correctHours} onChange={(e) => setCorrectHours(e.target.value)} />
                 </Field>
               ) : null}
-              <Field label="Reason (required, audited)" required>
+              {recordAction.kind !== 'permanent' ? <Field label="Reason (required, audited)" required>
                 <input className="input" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Explain the change for the audit log" />
-              </Field>
+              </Field> : null}
             </>
           }
-          confirmLabel={recordAction.kind === 'reverse' ? 'Reverse record' : recordAction.kind === 'restore' ? 'Restore record' : 'Save correction'}
-          danger={recordAction.kind === 'reverse'}
+          confirmLabel={recordAction.kind === 'permanent' ? 'Permanently delete' : recordAction.kind === 'reverse' ? 'Reverse record' : recordAction.kind === 'restore' ? 'Restore record' : 'Save correction'}
+          danger={recordAction.kind === 'reverse' || recordAction.kind === 'permanent'}
           busy={busy}
-          onCancel={() => setRecordAction(null)}
+          onCancel={() => { setRecordAction(null); setDeleteConfirmation(''); }}
           onConfirm={runRecordAction}
         />
       ) : null}

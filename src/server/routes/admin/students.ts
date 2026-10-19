@@ -220,3 +220,24 @@ studentsRouter.patch(
     return correctRecord(req.params.id, admin, hours, String(req.body?.reason ?? ''));
   })
 );
+
+studentsRouter.delete(
+  '/records/:id',
+  ah((req, res) => {
+    const admin = requireRole(req, 'owner');
+    if (req.query.permanent !== 'true' || req.query.confirm !== 'DELETE') {
+      throw new ApiError(400, 'Permanent deletion requires permanent=true and confirm=DELETE.');
+    }
+    const record = db.prepare('SELECT id, student_id, hours, event_name FROM service_records WHERE id = ?').get(req.params.id) as
+      | { id: string; student_id: string; hours: number; event_name: string }
+      | undefined;
+    if (!record) throw new ApiError(404, 'Service record not found.');
+    db.prepare('DELETE FROM service_records WHERE id = ?').run(record.id);
+    audit(admin.id, admin.name, 'record.permanent_delete', 'service_record', record.id, {
+      student_id: record.student_id,
+      hours: record.hours,
+      event_name: record.event_name,
+    });
+    return { ok: true, permanently_deleted: true };
+  })
+);
