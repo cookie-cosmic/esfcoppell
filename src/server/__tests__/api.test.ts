@@ -13,9 +13,11 @@ const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'es-test-'));
 process.env.DATA_DIR = path.join(tmp, 'data');
 process.env.DB_PATH = path.join(tmp, 'data', 'test.db');
 process.env.MEMBER_COOKIE_SECRET = 'test-secret';
+process.env.ADMIN_PIN = '123456';
 
 const { db } = await import('../db.js');
 const { hashPassword } = await import('../lib/passwords.js');
+const { createSession, SESSION_COOKIE } = await import('../lib/auth.js');
 const { default: app } = await import('../app.js');
 
 const server = app.listen(0);
@@ -40,8 +42,7 @@ async function req(method: string, p: string, opts: { body?: unknown; cookie?: s
 
 const cookieFrom = (setCookie: string[]) => setCookie.map((c) => c.split(';')[0]).join('; ');
 
-const OWNER_PW = 'Sup3r-Secret-Pass!';
-const REVIEWER_PW = 'Rev1ewer-Pass-123!';
+const STAFF_PIN = '123456';
 
 function makeAdmin(email: string, role: 'owner' | 'admin' | 'reviewer', password: string) {
   const id = `adm_${role}_${email.split('@')[0]}`;
@@ -51,10 +52,10 @@ function makeAdmin(email: string, role: 'owner' | 'admin' | 'reviewer', password
   return id;
 }
 
-/** Password-only staff login (no email required). */
-async function login(password: string) {
-  const r = await req('POST', '/api/admin/login', { body: { password } });
-  assert.equal(r.status, 200, 'login should succeed with the staff password');
+/** Shared six-digit staff PIN login (no email required). */
+async function login() {
+  const r = await req('POST', '/api/admin/login', { body: { pin: STAFF_PIN } });
+  assert.equal(r.status, 200, 'login should succeed with the staff PIN');
   return cookieFrom(r.setCookie);
 }
 
@@ -150,7 +151,7 @@ test('anonymous users cannot approve or reach admin endpoints', async () => {
 });
 
 test('login rate limiting and bad credentials', async () => {
-  const bad = await req('POST', '/api/admin/login', { body: { password: 'wrong-password' } });
+  const bad = await req('POST', '/api/admin/login', { body: { pin: '000000' } });
   assert.equal(bad.status, 401);
   const missing = await req('POST', '/api/admin/login', { body: {} });
   assert.equal(missing.status, 401);
@@ -160,10 +161,11 @@ let ownerCookie = '';
 let reviewerCookie = '';
 
 test('owner can log in; reviewer role is enforced on settings', async () => {
-  makeAdmin('owner@example.org', 'owner', OWNER_PW);
-  makeAdmin('reviewer@example.org', 'reviewer', REVIEWER_PW);
-  ownerCookie = await login(OWNER_PW);
-  reviewerCookie = await login(REVIEWER_PW);
+  makeAdmin('owner@example.org', 'owner', 'unused');
+  makeAdmin('reviewer@example.org', 'reviewer', 'unused');
+  ownerCookie = await login();
+  const reviewerId = 'adm_reviewer_reviewer';
+  reviewerCookie = `${SESSION_COOKIE}=${createSession(reviewerId, { ip: '127.0.0.1', get: () => '' } as any)}`;
 
   const settingsAsReviewer = await req('GET', '/api/admin/settings', { cookie: reviewerCookie });
   assert.equal(settingsAsReviewer.status, 403);
@@ -305,7 +307,7 @@ test('retention policy blocks hard delete for non-owners and by default', async 
 });
 
 test('session cookie is httpOnly and logout invalidates it', async () => {
-  const loginRes = await req('POST', '/api/admin/login', { body: { password: OWNER_PW } });
+  const loginRes = await req('POST', '/api/admin/login', { body: { pin: STAFF_PIN } });
   const cookie = cookieFrom(loginRes.setCookie);
   assert.ok(loginRes.setCookie.some((c) => /HttpOnly/i.test(c)), 'session cookie must be HttpOnly');
   const out = await req('POST', '/api/admin/logout', { cookie });

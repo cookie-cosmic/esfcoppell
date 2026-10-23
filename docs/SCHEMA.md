@@ -56,7 +56,7 @@ A Supabase/Postgres equivalent with RLS lives in `supabase/migrations/0001_init.
 | Hard-delete student (retention) | ❌ | ❌ | ❌ | ❌ | only if retention allows |
 | Events/activities/team/homepage/media CRUD | ❌ | ❌ | ❌ | ✅ | ✅ |
 | Settings (medals, rules, visibility, branding) | ❌ | ❌ | ❌ | ✅ | ✅ |
-| Retention policy, admin management, password resets | ❌ | ❌ | ❌ | ❌ | ✅ |
+| Retention policy and admin management | ❌ | ❌ | ❌ | ❌ | ✅ |
 | Read audit log | ❌ | ❌ | ❌ | ✅ | ✅ |
 | Modify audit log | ❌ | ❌ | ❌ | ❌ | ❌ (no endpoints) |
 
@@ -64,7 +64,7 @@ A Supabase/Postgres equivalent with RLS lives in `supabase/migrations/0001_init.
 
 - Passwords: scrypt with per-user salt; constant-work comparison for unknown emails.
 - Sessions: 256-bit random IDs, httpOnly + SameSite=Lax (+Secure in prod), 12 h expiry,
-  revoked on logout/password reset. Login rate-limited (8/10 min per IP+email); submissions
+  revoked on logout. Login rate-limited (8/10 min per IP); submissions
   (12/h/IP) and lookups (60/h/IP) rate-limited.
 - Uploads: size cap, magic-byte sniffing (JPEG/PNG/WebP/GIF), random stored names, static
   serving with `dotfiles: deny`; in-use images cannot be deleted accidentally.

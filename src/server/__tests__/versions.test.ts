@@ -12,6 +12,7 @@ const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'es-versions-'));
 process.env.DATA_DIR = path.join(tmp, 'data');
 process.env.DB_PATH = path.join(tmp, 'data', 'test.db');
 process.env.MEMBER_COOKIE_SECRET = 'test-secret';
+process.env.ADMIN_PIN = '123456';
 
 const { db } = await import('../db.js');
 const { hashPassword } = await import('../lib/passwords.js');
@@ -20,7 +21,6 @@ const { default: app } = await import('../app.js');
 const server = app.listen(0);
 await new Promise<void>((r) => server.once('listening', r));
 const base = `http://127.0.0.1:${(server.address() as any).port}`;
-const PW = 'Ver5ion-Pass-Check!';
 
 async function req(method: string, p: string, opts: { body?: unknown; token?: string } = {}) {
   const res = await fetch(base + p, {
@@ -38,7 +38,7 @@ async function req(method: string, p: string, opts: { body?: unknown; token?: st
 }
 
 db.prepare('INSERT INTO admin_users (id, email, name, password_hash, role, active, created_at) VALUES (?,?,?,?,?,1,?)').run(
-  'adm_owner_v', 'owner-v@example.org', 'Owner V', hashPassword(PW), 'owner', new Date().toISOString()
+  'adm_owner_v', 'owner-v@example.org', 'Owner V', hashPassword('legacy-unused'), 'owner', new Date().toISOString()
 );
 db.prepare(
   `INSERT INTO students (id, first_name, last_name, email, school_level, created_at, updated_at) VALUES ('stu_v','Ava','Test','ava@example.org','elementary',?,?)`
@@ -49,7 +49,7 @@ test('baseline version exists at startup', async () => {
 });
 
 test('admin content edit creates a version; restore brings back the prior text', async () => {
-  const login = await req('POST', '/api/admin/login', { body: { password: PW } });
+  const login = await req('POST', '/api/admin/login', { body: { pin: '123456' } });
   assert.equal(login.status, 200);
   const token = login.json.token as string;
 
@@ -83,7 +83,7 @@ test('admin content edit creates a version; restore brings back the prior text',
 });
 
 test('restore never changes students or service records', async () => {
-  const token = (await req('POST', '/api/admin/login', { body: { password: PW } })).json.token as string;
+  const token = (await req('POST', '/api/admin/login', { body: { pin: '123456' } })).json.token as string;
   const list = await req('GET', '/api/admin/versions', { token });
   const oldest = list.json.items[list.json.items.length - 1];
   const restore = await req('POST', `/api/admin/versions/${oldest.id}/restore`, { token });
@@ -96,7 +96,7 @@ test('reviewers cannot list or restore versions', async () => {
   db.prepare('INSERT INTO admin_users (id, email, name, password_hash, role, active, created_at) VALUES (?,?,?,?,?,1,?)').run(
     'adm_rev_v', 'rev-v@example.org', 'Reviewer V', hashPassword('Rev-Only-Pass-99!'), 'reviewer', new Date().toISOString()
   );
-  // Login is password-only and matches the owner first, so a reviewer session is created directly here.
+  // Create a reviewer session directly; the shared PIN resolves to the first active account.
   const { createSession } = await import('../lib/auth.js');
   const token = createSession('adm_rev_v', { ip: '127.0.0.1', get: () => '' } as any);
   assert.equal((await req('GET', '/api/admin/versions', { token })).status, 403);

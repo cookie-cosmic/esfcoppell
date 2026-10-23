@@ -1,98 +1,49 @@
 import { Router } from 'express';
 import { db, nowIso, newId, audit } from '../../db.js';
 import { ah, ApiError } from '../../lib/http.js';
-import { hashPassword, verifyPassword } from '../../lib/passwords.js';
+import { hashPassword, randomToken } from '../../lib/passwords.js';
 import { createSession, destroySession, requireAdmin, requireRole, sessionCookieOptions, sessionTokensFrom, SESSION_COOKIE } from '../../lib/auth.js';
 
 export const adminAuthRouter = Router();
 
 /**
- * One-time bootstrap: enabled only when ADMIN_SETUP_TOKEN is configured in the environment
- * and no admin accounts exist yet. Creates the initial OWNER account.
- */
-adminAuthRouter.post(
-  '/setup',
-  ah((req, res) => {
-    const token = process.env.ADMIN_SETUP_TOKEN;
-    if (!token) throw new ApiError(403, 'Setup is disabled. Use `npm run create-admin` on the server host.');
-    const existing = (db.prepare('SELECT COUNT(*) AS n FROM admin_users').get() as { n: number }).n;
-    if (existing > 0) throw new ApiError(403, 'An administrator already exists; setup is closed.');
-    const { token: provided, email, password, name } = req.body ?? {};
-    if (provided !== token) throw new ApiError(403, 'Invalid setup token.');
-    if (typeof email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) throw new ApiError(422, 'Valid email required.');
-    if (typeof password !== 'string' || password.length < 12) throw new ApiError(422, 'Password must be at least 12 characters.');
-    const id = newId('adm');
-    db.prepare('INSERT INTO admin_users (id, email, name, password_hash, role, active, created_at) VALUES (?,?,?,?,?,1,?)').run(
-      id,
-      email.toLowerCase(),
-      String(name ?? 'Chapter Administrator').slice(0, 80),
-      hashPassword(password),
-      'owner',
-      nowIso()
-    );
-    audit(id, email, 'admin.bootstrap', 'admin_user', id, { via: 'setup-token' });
-    const sessionId = createSession(id, req);
-    res.cookie(SESSION_COOKIE, sessionId, sessionCookieOptions());
-    res.status(201);
-    return { ok: true, role: 'owner' };
-  })
-);
-
-/**
- * Password-only staff sign-in (chapter request): no email required.
- * The password is matched against active staff accounts; the matched account
- * becomes the session identity used for roles and audit logs.
+ * PIN-only staff sign-in. The configured PIN is the sole administrator
+ * authentication method; passwords are not accepted by this endpoint.
  */
 adminAuthRouter.post(
   '/login',
   ah((req, res) => {
-    const password = typeof req.body?.password === 'string' ? req.body.password : '';
     const pin = typeof req.body?.pin === 'string' ? req.body.pin : '';
     const loginName = typeof req.body?.login_name === 'string' ? req.body.login_name.trim().slice(0, 80) : '';
-    if (!password && !pin) throw new ApiError(401, 'Password or PIN required.');
+    if (!pin) throw new ApiError(401, 'Staff PIN required.');
     const configuredPin = process.env.ADMIN_PIN;
-    const configuredPassword = process.env.ADMIN_PASSWORD;
+    if (!configuredPin || !/^\d{6}$/.test(configuredPin)) throw new ApiError(503, 'Configure a six-digit ADMIN_PIN in the deployment environment.');
     let rows = db.prepare('SELECT * FROM admin_users WHERE active = 1 ORDER BY created_at').all() as {
       id: string; email: string; password_hash: string; role: string; name: string;
     }[];
-    if (!rows.length && configuredPin && configuredPassword) {
-      const pinMatches = pin && (configuredPin === pin || verifyPassword(pin, configuredPin));
-      const passwordMatches = password && (configuredPassword === password || verifyPassword(password, configuredPassword));
-      if (pinMatches || passwordMatches) {
+    if (!rows.length && configuredPin === pin) {
         const id = 'adm_env_owner';
         db.prepare(
           'INSERT OR IGNORE INTO admin_users (id, email, name, password_hash, role, active, created_at) VALUES (?,?,?,?,?,1,?)'
-        ).run(id, 'admin@configured.local', 'Configured Administrator', hashPassword(configuredPassword), 'owner', nowIso());
+        ).run(id, 'admin@configured.local', 'Configured Administrator', hashPassword(randomToken(32)), 'owner', nowIso());
         rows = db.prepare('SELECT * FROM admin_users WHERE active = 1 ORDER BY created_at').all() as typeof rows;
-      }
     }
     let matched: typeof rows[number] | undefined;
-    if (pin) {
-      if (!/^\d{6}$/.test(pin)) throw new ApiError(401, 'Invalid PIN.');
-      if (!rows.length) throw new ApiError(503, 'Configure ADMIN_PIN and ADMIN_PASSWORD in the deployment environment.');
-      if (configuredPin && (configuredPin === pin || verifyPassword(pin, configuredPin))) matched = rows[0];
-    } else {
-      for (const row of rows) {
-        if (verifyPassword(password, row.password_hash) || (configuredPassword === password && password === configuredPassword)) {
-          matched = row;
-          break;
-        }
-      }
-    }
+    if (!/^\d{6}$/.test(pin)) throw new ApiError(401, 'Invalid PIN.');
+    if (configuredPin === pin && rows.length) matched = rows[0];
     if (!matched) {
       // constant-ish work to keep timing uniform
-      verifyPassword(pin || password, 'scrypt$00$' + '0'.repeat(128));
-      audit(null, 'Unknown sign-in', pin ? 'admin.pin_failed' : 'admin.password_failed', 'admin_session', null, {
+      audit(null, 'Unknown sign-in', 'admin.pin_failed', 'admin_session', null, {
         ip: req.ip ?? null,
-        method: pin ? 'pin' : 'password',
+        method: 'pin',
       });
-      throw new ApiError(401, pin ? 'Incorrect PIN.' : 'Incorrect password.');
+      throw new ApiError(401, 'Incorrect PIN.');
     }
     const sessionId = createSession(matched.id, req);
     res.cookie(SESSION_COOKIE, sessionId, sessionCookieOptions());
-    audit(matched.id, loginName || matched.name, pin ? 'admin.pin_login' : 'admin.login', 'admin_user', matched.id, {
+    audit(matched.id, loginName || matched.name, 'admin.pin_login', 'admin_user', matched.id, {
       ip: req.ip ?? null,
-      method: pin ? 'pin' : 'password',
+      method: 'pin',
       account_name: matched.name,
       entered_name: loginName || matched.name,
     });
@@ -130,9 +81,8 @@ adminAuthRouter.post(
   '/admins',
   ah((req, res) => {
     const owner = requireRole(req, 'owner');
-    const { email, name, password, role } = req.body ?? {};
+    const { email, name, role } = req.body ?? {};
     if (typeof email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) throw new ApiError(422, 'Valid email required.');
-    if (typeof password !== 'string' || password.length < 12) throw new ApiError(422, 'Password must be at least 12 characters.');
     if (!['admin', 'reviewer'].includes(String(role))) throw new ApiError(422, 'Role must be admin or reviewer.');
     const id = newId('adm');
     try {
@@ -140,7 +90,7 @@ adminAuthRouter.post(
         id,
         String(email).toLowerCase(),
         String(name ?? '').slice(0, 80) || String(email).split('@')[0],
-        hashPassword(password),
+        hashPassword(randomToken(32)),
         String(role),
         nowIso()
       );
@@ -170,21 +120,6 @@ adminAuthRouter.patch(
       target.id
     );
     audit(owner.id, owner.name, 'admin.update', 'admin_user', target.id, { role, active, name });
-    return { ok: true };
-  })
-);
-
-adminAuthRouter.post(
-  '/admins/:id/reset-password',
-  ah((req) => {
-    const owner = requireRole(req, 'owner');
-    const { password } = req.body ?? {};
-    if (typeof password !== 'string' || password.length < 12) throw new ApiError(422, 'Password must be at least 12 characters.');
-    const target = db.prepare('SELECT id FROM admin_users WHERE id = ?').get(req.params.id) as any;
-    if (!target) throw new ApiError(404, 'Administrator not found.');
-    db.prepare('UPDATE admin_users SET password_hash = ? WHERE id = ?').run(hashPassword(password), target.id);
-    db.prepare('DELETE FROM sessions WHERE admin_id = ?').run(target.id);
-    audit(owner.id, owner.name, 'admin.reset_password', 'admin_user', target.id, {});
     return { ok: true };
   })
 );

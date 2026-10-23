@@ -8,18 +8,15 @@ the API and the built SPA, so there is exactly one origin and cookies just work.
 ```bash
 npm ci
 npm run build                 # dist/ (client) + dist-server/ (server)
-# first boot on a fresh database:
-npm run create-admin          # interactive; or:
-#   node dist-server/server/cli/create-admin.js --email you@org --role owner --password-from-stdin
 NODE_ENV=production PORT=8080 COOKIE_SECURE=true MEMBER_COOKIE_SECRET="$(openssl rand -base64 32)" node dist-server/server/index.js
 ```
 
 Persistent volume: point `DATA_DIR` (SQLite file + uploads) at mounted storage when using SQLite. The application also supports durable Supabase persistence through the server-only `SUPABASE_DB_URL` variable. When that variable is present, the server restores every application table and uploaded media from Supabase during startup and schedules a durable snapshot after every successful write. The production process also flushes any queued snapshot during graceful shutdown. The server logs and `/api/health` expose the active persistence backend so a deployment can be verified. The server normalizes its file URL correctly on Windows, and uses `data/app.db` by default locally; do not place the database in a disposable build/output directory.
 Health check: `GET /api/health`.
 
-Optional env-var bootstrap instead of CLI (one-time, only while no admin exists):
-set `ADMIN_SETUP_TOKEN`, then `POST /api/admin/setup {token,email,password,name}` once and
-unset the variable.
+On a fresh database, set `ADMIN_PIN` to a six-digit value and sign in once; the first
+successful PIN sign-in creates the owner identity automatically. There is no password
+bootstrap or password reset flow.
 
 ## Option B — GitHub Pages (static) + external API
 
@@ -85,8 +82,7 @@ use durable storage before keeping real student records or uploads.
    firebase deploy --only hosting
    ```
 
-3. Open the Render service shell and run `npm run create-admin` once to create the owner.
-4. Confirm `GET https://esfcoppell-api.onrender.com/api/health` responds before signing in, and verify `persistence.backend` is `supabase-postgres-snapshot`, `persistence.supabase_configured` is `true`, and `database_exists` is `true`.
+3. Confirm `GET https://esfcoppell-api.onrender.com/api/health` responds before signing in, and verify `persistence.backend` is `supabase-postgres-snapshot`, `persistence.supabase_configured` is `true`, and `database_exists` is `true`.
 
 The API explicitly allows requests from `https://esfcoppell.web.app` and uses bearer
 session tokens for cross-origin admin requests.
@@ -102,16 +98,15 @@ firebase deploy --only hosting
 
 The Cloud Run filesystem is ephemeral. Do not use this option for production student
 records without first moving the SQLite database and uploads to durable storage (or
-using the Supabase option above). After the API is deployed with durable storage,
-create the first owner on the API host with `npm run create-admin`.
+using the Supabase option above). After the API is deployed with durable storage, the first successful PIN sign-in creates
+the owner identity.
 
 ## Administrator onboarding (production)
 
-1. On the host: `npm run create-admin` (owner). Passwords are scrypt-hashed; nothing is
-   seeded with a default password.
+1. Set the server-only `ADMIN_PIN` to a six-digit staff PIN. If no admin exists, the first
+   successful PIN sign-in creates the owner identity.
 2. Owner signs in (hidden trigger: five clicks on the tiny footer smile icon within 3 s).
-   Sign-in is **password-only** — the password is matched against active staff accounts,
-   and the matched account becomes the audit identity.
+   Sign-in is **PIN-only**; password login is disabled.
 3. Review **Settings** (medal targets and hour rules). Public volunteer records are disabled; volunteers use the PIN-protected Ticket Status / Self Stats Tool Box.
 4. Enter real content: Homepage Editor, Team, Events & Activities, Media Library.
    Skip `npm run seed:sample` in production (it is demo data and refuses to run over real
