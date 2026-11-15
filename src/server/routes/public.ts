@@ -11,6 +11,7 @@ import {
   DATA_DIR,
   DB_PATH,
   cloudPersistenceEnabled,
+  cloudPersistenceStatus,
 } from '../db.js';
 import { ah, ApiError } from '../lib/http.js';
 import { MEMBER_COOKIE, memberCookieValue, verifyMember, sessionCookieOptions, signMember } from '../lib/auth.js';
@@ -346,8 +347,10 @@ publicRouter.get(
   })
 );
 
-publicRouter.get('/health', (_req, res) =>
-  res.json({
+publicRouter.get('/health', (_req, res) => {
+  const status = cloudPersistenceStatus();
+  const required = process.env.PERSISTENCE_REQUIRED === 'true';
+  return res.json({
     ok: true,
     time: nowIso(),
     settings_loaded: Object.keys(allSettings()).length,
@@ -356,9 +359,16 @@ publicRouter.get('/health', (_req, res) =>
       database_path: DB_PATH,
       database_exists: fs.existsSync(DB_PATH),
       uploads_dir_exists: fs.existsSync(`${DATA_DIR}/uploads`),
-      required: process.env.PERSISTENCE_REQUIRED === 'true',
+      required,
       backend: cloudPersistenceEnabled() ? 'supabase-postgres-snapshot' : 'local-sqlite',
       supabase_configured: cloudPersistenceEnabled(),
+      // 'ready' means the durable snapshot was restored and the last sync succeeded;
+      // 'degraded' means Supabase is configured but unreachable/misconfigured.
+      supabase_state: status.state,
+      supabase_restored: status.restored,
+      supabase_last_sync_at: status.last_sync_at,
+      supabase_last_error_kind: status.last_error_kind,
+      durable: cloudPersistenceEnabled() ? status.state === 'ready' : !required,
     },
-  })
-);
+  });
+});

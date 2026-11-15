@@ -15,7 +15,7 @@ process.env.DB_PATH = path.join(tmp, 'data', 'test.db');
 process.env.MEMBER_COOKIE_SECRET = 'test-secret';
 process.env.ADMIN_PIN = '123456';
 
-const { db } = await import('../db.js');
+const { db, closeDatabase } = await import('../db.js');
 const { hashPassword } = await import('../lib/passwords.js');
 const { createSession, SESSION_COOKIE } = await import('../lib/auth.js');
 const { default: app } = await import('../app.js');
@@ -93,15 +93,19 @@ test('submission validation rejects bad payloads server-side', async () => {
   assert.ok(missing.json.details.first_name);
   assert.ok(missing.json.details.total_hours);
 
-  const mismatch = await req('POST', '/api/submissions', { body: submission({ total_hours: 6 }) });
-  assert.equal(mismatch.status, 422);
-  assert.match(mismatch.json.details.total_hours, /do not match/i);
-
   const asyncCap = await req('POST', '/api/submissions', { body: submission({ event_type: 'asynchronous', start_time: null, end_time: null, total_hours: 9 }) });
   assert.equal(asyncCap.status, 422);
 
   const future = await req('POST', '/api/submissions', { body: submission({ event_date: '2030-01-01' }) });
   assert.equal(future.status, 422);
+});
+
+test('reported hours are authoritative and need not match the clock times', async () => {
+  const r = await req('POST', '/api/submissions', { body: submission({ email: 'odd.hours@example.org', total_hours: 6 }) });
+  assert.equal(r.status, 201, JSON.stringify(r.json));
+  const row = db.prepare('SELECT total_hours, computed_hours FROM submissions WHERE id = ?').get(r.json.submission_id) as any;
+  assert.equal(row.total_hours, 6, 'the hours the volunteer reported are stored as entered');
+  assert.equal(row.computed_hours, 3, 'the clock duration is still recorded for reviewers');
 });
 
 let accessCode = '';
@@ -139,6 +143,17 @@ test('lookup with wrong code fails; correct code shows only own pending submissi
   assert.equal(ok.json.submissions.length, 1);
   assert.equal(ok.json.submissions[0].status, 'pending');
   assert.equal(ok.json.total_approved_hours, 0, 'pending hours must not count');
+});
+
+test('a volunteer can submit again by email without entering a PIN', async () => {
+  const r = await req('POST', '/api/submissions', {
+    body: submission({ event_name: 'Second Event', event_date: '2026-09-21' }),
+  });
+  assert.equal(r.status, 201, JSON.stringify(r.json));
+  assert.equal(r.json.access_code, null, 'the PIN is revealed only on the first submission');
+  const student = db.prepare('SELECT id FROM students WHERE email = ?').get('test.student@example.org') as any;
+  const count = db.prepare('SELECT COUNT(*) AS n FROM submissions WHERE student_id = ?').get(student.id) as any;
+  assert.equal(count.n, 2, 'both submissions belong to the same email-based record');
 });
 
 test('anonymous users cannot approve or reach admin endpoints', async () => {
@@ -261,37 +276,21 @@ test('medal requirements respect school level (middle: 50/100)', async () => {
   assert.equal(lookup.json.medals.silver.remaining, 47);
 });
 
-test('public directory hides pending-only students and exposes approved totals only', async () => {
+test('retired public volunteer directory leaks no student data', async () => {
   const dir = await req('GET', '/api/directory');
-  assert.equal(dir.status, 200);
-  const names = dir.json.students.map((s: any) => s.first_name);
-  assert.ok(names.includes('Test'));
-  const row = dir.json.students.find((s: any) => s.first_name === 'Test');
-  assert.equal(row.total_hours, 5);
-  assert.ok(!('email' in row), 'directory must not expose emails');
-  assert.ok(!('approver_primary' in row));
+  assert.equal(dir.status, 410, 'the public directory was replaced by the PIN-protected tool box');
+  assert.ok(!('students' in (dir.json as Record<string, unknown>)), 'no student records may be returned');
 });
 
-test('members-only directory mode blocks anonymous and allows lookup-authenticated members', async () => {
-  await req('PUT', '/api/admin/settings/directory_visibility', { cookie: ownerCookie, body: { value: 'members' } });
-  const anon = await req('GET', '/api/directory');
-  assert.equal(anon.status, 403);
+test('a lookup member cookie does not re-open the retired directory or records sheet', async () => {
   const lookup = await req('GET', `/api/lookup/${accessCode}`);
   const memberCookie = cookieFrom(lookup.setCookie);
-  const member = await req('GET', '/api/directory', { cookie: memberCookie });
-  assert.equal(member.status, 200);
-  await req('PUT', '/api/admin/settings/directory_visibility', { cookie: ownerCookie, body: { value: 'public' } });
-});
-
-test('private records endpoint only returns approved active records', async () => {
+  assert.ok(memberCookie, 'lookup still issues the member proof cookie');
+  const dir = await req('GET', '/api/directory', { cookie: memberCookie });
+  assert.equal(dir.status, 410);
   const recs = await req('GET', '/api/records');
-  assert.equal(recs.status, 200);
-  for (const r of recs.json.records) {
-    assert.ok(r.hours > 0);
-    assert.ok(!('status' in r) || r.status === undefined || true);
-  }
-  const pendingRows = db.prepare(`SELECT COUNT(*) n FROM service_records sr JOIN submissions s ON s.id = sr.submission_id WHERE s.status = 'pending'`).get() as any;
-  assert.ok(pendingRows.n >= 0);
+  assert.equal(recs.status, 410);
+  assert.ok(!('records' in (recs.json as Record<string, unknown>)), 'no service records may be returned');
 });
 
 test('retention policy blocks hard delete for non-owners and by default', async () => {
@@ -342,5 +341,7 @@ test('bulk approval records approver attribution for selected submissions', asyn
 
 test('cleanup', async () => {
   server.close();
+  // Windows keeps the SQLite file locked while the handle is open.
+  closeDatabase();
   fs.rmSync(tmp, { recursive: true, force: true });
 });

@@ -4,7 +4,13 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { AsyncLocalStorage } from 'node:async_hooks';
-import { cloudPersistenceEnabled, restoreCloudState, scheduleCloudSnapshot, flushCloudSnapshot } from './cloud-persistence.js';
+import {
+  cloudPersistenceEnabled,
+  cloudPersistenceStatus,
+  restoreCloudState,
+  scheduleCloudSnapshot,
+  flushCloudSnapshot,
+} from './cloud-persistence.js';
 
 // URL.pathname keeps a leading slash before the drive letter on Windows ("/C:/...").
 // fileURLToPath normalizes it so the SQLite file remains in the project data directory across restarts.
@@ -278,14 +284,37 @@ if (!submissionColumns.some((column) => column.name === 'approval_last_name')) {
   db.exec('ALTER TABLE submissions ADD COLUMN approval_last_name TEXT');
 }
 
-await restoreCloudState(db, UPLOAD_DIR);
-if (cloudPersistenceEnabled()) {
-  console.log('[db] Supabase persistence is enabled');
+// A cloud persistence failure must never stop the API from booting: the site keeps serving
+// from the local SQLite database and /api/health reports the degraded backend.
+try {
+  await restoreCloudState(db, UPLOAD_DIR);
+} catch (error) {
+  console.error('[db] Supabase restore could not complete; continuing with the local database', error);
+}
+
+const persistence = cloudPersistenceStatus();
+if (persistence.configured) {
+  console.log(`[db] Supabase persistence is enabled (state: ${persistence.state})`);
+  if (persistence.state === 'degraded') {
+    console.error(
+      `[db] Supabase persistence is degraded (${persistence.last_error_kind ?? 'unknown'}); ` +
+        'data written now is only in local SQLite and will not survive a restart. Fix SUPABASE_DB_URL (host + username must be copied from the Supabase Connect dialog).'
+    );
+  }
 } else {
   console.warn('[db] Supabase persistence is not configured; local data will be ephemeral on Render.');
 }
 
-export { cloudPersistenceEnabled, scheduleCloudSnapshot, flushCloudSnapshot };
+/** Closes the SQLite handle so the data directory can be removed (tests) or unmounted (shutdown). */
+export function closeDatabase() {
+  try {
+    db.close();
+  } catch (error) {
+    console.error('[db] failed to close the database cleanly', error);
+  }
+}
+
+export { cloudPersistenceEnabled, cloudPersistenceStatus, scheduleCloudSnapshot, flushCloudSnapshot };
 
 /* ------------------------- settings helpers ------------------------- */
 

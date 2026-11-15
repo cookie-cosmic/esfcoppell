@@ -36,7 +36,8 @@ A Supabase/Postgres equivalent with RLS lives in `supabase/migrations/0001_init.
 - **Duplicates prevented** at submission time (same student + event + date + hours → 409) and
   at approval time by the constraints above.
 - **Time math server-side.** Synchronous durations are recomputed from start/end (midnight
-  crossing supported) and compared to reported hours within a configurable tolerance.
+  crossing supported) and stored as `computed_hours` for the reviewer. The reported hours are
+  authoritative and are not required to match the clock times.
 - Timestamps stored as ISO-8601 UTC; displayed in the visitor's local timezone client-side.
 - Stable IDs (`stu_…`, `sub_…`, `rec_…`) are used everywhere; names are display-only.
 

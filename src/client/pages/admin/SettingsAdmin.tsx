@@ -63,7 +63,6 @@ export default function SettingsAdmin({ session }: { session: SessionState }) {
           <div className="form-grid">
             <Field label="Max hours / submission"><input className="input" type="number" value={draft.hour_rules.max_hours_per_submission} onChange={(e) => setDraft((d: any) => ({ ...d, hour_rules: { ...d.hour_rules, max_hours_per_submission: Number(e.target.value) } }))} /></Field>
             <Field label="Max hours / day"><input className="input" type="number" value={draft.hour_rules.max_hours_per_day} onChange={(e) => setDraft((d: any) => ({ ...d, hour_rules: { ...d.hour_rules, max_hours_per_day: Number(e.target.value) } }))} /></Field>
-            <Field label="Sync tolerance (hours)"><input className="input" type="number" step="0.05" value={draft.hour_rules.sync_tolerance_hours} onChange={(e) => setDraft((d: any) => ({ ...d, hour_rules: { ...d.hour_rules, sync_tolerance_hours: Number(e.target.value) } }))} /></Field>
             <Field label="Async cap (hours)"><input className="input" type="number" value={draft.hour_rules.async_max_hours} onChange={(e) => setDraft((d: any) => ({ ...d, hour_rules: { ...d.hour_rules, async_max_hours: Number(e.target.value) } }))} /></Field>
             <Field label="Async rule text (shown to students)" className="full"><textarea className="input" value={draft.hour_rules.async_rule_text} onChange={(e) => setDraft((d: any) => ({ ...d, hour_rules: { ...d.hour_rules, async_rule_text: e.target.value } }))} /></Field>
           </div>

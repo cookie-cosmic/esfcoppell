@@ -82,19 +82,14 @@ export function validateSubmission(raw: Record<string, unknown>): ValidationResu
         : `A single submission cannot exceed ${rules.max_hours_per_submission} hours.`;
   }
 
+  // The reported hours are authoritative. Start/end times are still recorded and the clock
+  // duration is computed for the reviewer, but the two are no longer required to agree.
   let computedHours: number | null = null;
   if (event_type === 'synchronous') {
     if (!isTime(start_time ?? '')) errors.start_time = 'Start time (HH:MM) is required for synchronous activities.';
     if (!isTime(end_time ?? '')) errors.end_time = 'End time (HH:MM) is required for synchronous activities.';
     if (!errors.start_time && !errors.end_time && start_time && end_time) {
       computedHours = syncDurationHours(start_time, end_time);
-      if (computedHours > rules.max_hours_per_day) {
-        errors.end_time = 'Computed duration exceeds 24 hours; check the start/end times.';
-      } else if (hours !== null && Math.abs(computedHours - hours) > rules.sync_tolerance_hours) {
-        errors.total_hours = `Reported hours (${hours}) do not match the start/end times (computed ${computedHours}h${
-          computedHours !== null && end_time! <= start_time! ? ', spanning midnight' : ''
-        }). Adjust times or hours, or ask an administrator if the activity spanned multiple days.`;
-      }
     }
   } else if (start_time || end_time) {
     // Optional times on async work: still sanity-check them if provided.
@@ -176,10 +171,9 @@ export function createSubmission(input: SubmissionInput, computedHours: number |
       );
     }
 
-    let codeRow = db.prepare('SELECT code FROM access_codes WHERE student_id = ?').get(studentId) as { code: string } | undefined;
-    if (codeRow && !input.access_code) {
-      throw new ApiError(422, 'Enter the dedicated PIN tied to this account before submitting again.');
-    }
+    // Submitting never requires the PIN: hours are tied to the volunteer by email. The PIN is
+    // only issued here (once) so the student can view and correct their own tickets later.
+    const codeRow = db.prepare('SELECT code FROM access_codes WHERE student_id = ?').get(studentId) as { code: string } | undefined;
     let code: string | null;
     let isNewAccessCode = false;
     if (codeRow) {

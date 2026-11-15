@@ -10,7 +10,7 @@ import { IconCheck, IconClock, IconMedal } from '../components/icons';
 const emptyForm = {
   first_name: '', last_name: '', email: '', school_level: '', event_type: 'synchronous',
   event_pick: '', event_other: '', event_date: '', start_time: '', end_time: '',
-  total_hours: '', approver_primary: '', approver_secondary: '', access_code: '',
+  total_hours: '', approver_primary: '', approver_secondary: '',
 };
 
 function clientValidate(f: typeof emptyForm, hourRules: any): Record<string, string> {
@@ -31,17 +31,6 @@ function clientValidate(f: typeof emptyForm, hourRules: any): Record<string, str
   if (f.event_type === 'synchronous') {
     if (!f.start_time) errors.start_time = 'Required for synchronous activities.';
     if (!f.end_time) errors.end_time = 'Required for synchronous activities.';
-    if (f.start_time && f.end_time && f.total_hours && Number.isFinite(hours)) {
-      const [sh, sm] = f.start_time.split(':').map(Number);
-      const [eh, em] = f.end_time.split(':').map(Number);
-      let mins = eh * 60 + em - (sh * 60 + sm);
-      const spansMidnight = mins <= 0;
-      if (spansMidnight) mins += 24 * 60;
-      const computed = mins / 60;
-      if (Math.abs(computed - hours) > (hourRules?.sync_tolerance_hours ?? 0.25)) {
-        errors.total_hours = `Hours don’t match the start/end times (${fmtHours(Math.round(computed * 100) / 100)}h${spansMidnight ? ', spanning midnight' : ''}).`;
-      }
-    }
   }
   return errors;
 }
@@ -87,11 +76,10 @@ export default function Hours() {
         total_hours: Number(form.total_hours),
         approver_primary: form.approver_primary.trim(),
         approver_secondary: form.approver_secondary.trim() || null,
-        access_code: form.access_code.trim() || null,
       });
       setCreated(res);
       setForm({ ...emptyForm });
-      toast('success', 'Submission received — it is pending review. See it below in Detailed Service Records.');
+      toast('success', 'Submission received — it is pending review. Track it below with your dedicated PIN.');
       setTimeout(() => document.getElementById('ticket-toolbox')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 350);
     } catch (err: any) {
       if (err instanceof ApiError && err.status === 422 && err.details) setErrors(err.details);
@@ -142,15 +130,8 @@ export default function Hours() {
                     <input className={`input ${errors.last_name ? 'invalid' : ''}`} value={form.last_name} onChange={set('last_name')} autoComplete="family-name" />
                   </Field>
                   <Field label="Email (links your submissions)" required error={errors.email} className="full"
-                    hint="Used to match your future submissions to your record.">
+                    hint="Your email is how every submission is tied to your hour record — use the same one each time.">
                     <input className={`input ${errors.email ? 'invalid' : ''}`} type="email" value={form.email} onChange={set('email')} autoComplete="email" />
-                  </Field>
-                  <Field label="Dedicated PIN" className="full" hint="Choose “First submission” to receive a random PIN, or enter the PIN you already received.">
-                    <div className="row" style={{ gap: 16, marginBottom: 8 }}>
-                      <label className="row small" style={{ gap: 6 }}><input type="radio" name="pin_mode" checked={!form.access_code} onChange={() => setForm((f) => ({ ...f, access_code: '' }))} /> First submission / use my saved PIN below</label>
-                      <label className="row small" style={{ gap: 6 }}><input type="radio" name="pin_mode" checked={!!form.access_code} onChange={() => undefined} /> I have a PIN</label>
-                    </div>
-                    <input className="input" value={form.access_code} onChange={set('access_code')} placeholder="ES-7K2M-Q9XD-44TA" autoComplete="off" />
                   </Field>
                   <Field label="School level" required error={errors.school_level}>
                     <select className="input" value={form.school_level} onChange={set('school_level')}>
@@ -190,7 +171,7 @@ export default function Hours() {
                     <input className="input" type="date" value={form.event_date} onChange={set('event_date')} max={new Date().toISOString().slice(0, 10)} />
                   </Field>
                   <Field label="Total hours spent" required error={errors.total_hours}
-                    hint={form.event_type === 'asynchronous' ? config?.hour_rules?.async_rule_text : 'Must match your start/end times (activities spanning midnight are handled).'}>
+                    hint={form.event_type === 'asynchronous' ? config?.hour_rules?.async_rule_text : 'The hours you actually served — they don’t have to match the start and end times exactly.'}>
                     <input className="input" type="number" min="0.25" max="24" step="0.25" value={form.total_hours} onChange={set('total_hours')} />
                   </Field>
                   <Field label="Start time" required={form.event_type === 'synchronous'} error={errors.start_time}>

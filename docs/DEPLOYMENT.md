@@ -46,7 +46,18 @@ SUPABASE_DB_URL=postgresql://postgres.<project-ref>:<password>@aws-0-<region>.po
 ```
 
 Use the transaction pooler URL, keep the password secret, and never expose this variable to
-the browser or commit it to the repository. On first boot the server creates the private
+the browser or commit it to the repository.
+
+Copy the whole string from the Supabase **Connect** dialog (Session or Transaction pooler) and
+replace only the password. A hand-built host or a plain `postgres` username fails with
+`FATAL: (ENOTFOUND) tenant/user postgres.<project-ref> not found`: the pooler routes by the
+`<role>.<project-ref>` username, so it needs the project ref, and the `aws-N` host prefix is a
+pooler cluster index rather than the region. Also confirm the project is not paused.
+
+A wrong or unreachable `SUPABASE_DB_URL` never stops the API: the server logs the failure with
+that hint, keeps serving from local SQLite, retries the restore with backoff while the local
+database is still empty, and reports `persistence.supabase_state` as `degraded` on
+`/api/health`. Data written while degraded is not durable, so fix the variable and redeploy. On first boot the server creates the private
 `app_persistence_snapshots` and `app_persistence_assets` tables in Supabase automatically.
 The snapshot contains all application tables, including admin sessions, volunteer PINs,
 submissions, approvals, settings, CMS content, audit logs, and version history. Media files
@@ -82,7 +93,7 @@ use durable storage before keeping real student records or uploads.
    firebase deploy --only hosting
    ```
 
-3. Confirm `GET https://esfcoppell-api.onrender.com/api/health` responds before signing in, and verify `persistence.backend` is `supabase-postgres-snapshot`, `persistence.supabase_configured` is `true`, and `database_exists` is `true`.
+3. Confirm `GET https://esfcoppell-api.onrender.com/api/health` responds before signing in, and verify `persistence.backend` is `supabase-postgres-snapshot`, `persistence.supabase_configured` is `true`, `persistence.supabase_state` is `ready`, `persistence.durable` is `true`, and `database_exists` is `true`.
 
 The API explicitly allows requests from `https://esfcoppell.web.app` and uses bearer
 session tokens for cross-origin admin requests.
