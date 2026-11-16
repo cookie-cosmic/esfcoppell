@@ -292,6 +292,29 @@ try {
   console.error('[db] Supabase restore could not complete; continuing with the local database', error);
 }
 
+const foundationProjects = [
+  ['Wishes for Warriors', 'Surprise children with gifts they have wished for, creating unforgettable moments of joy and support.', 'Outreach'],
+  ['Smile Sessions', 'Bring joy and creativity to children through arts and crafts, interactive playtime, and storytime.', 'Outreach'],
+  ['STEAM Camps', 'Support hands-on science, technology, engineering, arts, and math activities for children.', 'Community Service'],
+  ['Cards & Bracelets', 'Create heartfelt cards and colorful bracelets that spread hope, kindness, and connection.', 'Outreach'],
+  ['Portraits of Hope', 'Partner with local artists to create personalized artwork and meaningful keepsakes for families.', 'Outreach'],
+  ['Storytime Magic', 'Record and donate audiobooks to hospitals to bring comfort and joy to children during hospital stays.', 'Community Service'],
+] as const;
+const insertProject = db.prepare(
+  `INSERT INTO activities
+   (id, title, description, category, mode, instructions, hour_eligibility, hour_limit, start_date, end_date, submission_requirements, active, featured_on_home, position, created_at, updated_at)
+   VALUES (?, ?, ?, ?, 'both', '', 'Submit the hours you actually served and include an approver who can verify your work.', 8, NULL, NULL, 'Keep a supervisor note, photo, or other documentation if requested.', 1, 0, ?, ?, ?)`
+);
+const projectCount = (db.prepare(`SELECT COUNT(*) AS n FROM activities WHERE title = ?`).get(foundationProjects[0][0]) as { n: number }).n;
+if (!projectCount) {
+  const timestamp = nowIso();
+  db.transaction(() => {
+    foundationProjects.forEach(([title, description, category], position) => {
+      insertProject.run(newId('act'), title, description, category, position, timestamp, timestamp);
+    });
+  })();
+}
+
 const persistence = cloudPersistenceStatus();
 if (persistence.configured) {
   console.log(`[db] Supabase persistence is enabled (state: ${persistence.state})`);

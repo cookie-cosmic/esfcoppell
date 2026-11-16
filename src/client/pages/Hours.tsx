@@ -150,7 +150,7 @@ export default function Hours() {
                     <select className="input" value={form.event_pick} onChange={set('event_pick')}>
                       <option value="">Select…</option>
                       <optgroup label="Chapter events (past and upcoming)">
-                        {eventList.filter((e) => e.status === 'published').map((e) => <option key={e.id} value={e.title}>{e.title}</option>)}
+                        {eventList.map((e) => <option key={e.id} value={e.title}>{e.title}</option>)}
                       </optgroup>
                       <optgroup label="Ongoing activities">
                         {activityList.map((a) => <option key={a.id} value={a.title}>{a.title}</option>)}
