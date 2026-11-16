@@ -108,15 +108,14 @@ test('reported hours are authoritative and need not match the clock times', asyn
   assert.equal(row.computed_hours, 3, 'the clock duration is still recorded for reviewers');
 });
 
-let accessCode = '';
+const studentEmail = 'test.student@example.org';
 let submissionId = '';
 
-test('valid submission is created PENDING and returns a tracking code', async () => {
+test('valid submission is created PENDING and uses email tracking', async () => {
   const r = await req('POST', '/api/submissions', { body: submission() });
   assert.equal(r.status, 201);
   assert.equal(r.json.status, 'pending');
-  assert.match(r.json.access_code, /^ES-/);
-  accessCode = r.json.access_code;
+  assert.equal(r.json.access_code, null);
   submissionId = r.json.submission_id;
 
   const row = db.prepare('SELECT status FROM submissions WHERE id = ?').get(submissionId) as any;
@@ -135,10 +134,10 @@ test('duplicate submission is rejected', async () => {
   assert.equal(r.status, 409);
 });
 
-test('lookup with wrong code fails; correct code shows only own pending submissions', async () => {
-  const bad = await req('GET', '/api/lookup/ES-AAAA-BBBB-CCCC');
+test('lookup with unknown email fails; matching email shows own pending submissions', async () => {
+  const bad = await req('GET', '/api/lookup?email=unknown@example.org');
   assert.equal(bad.status, 404);
-  const ok = await req('GET', `/api/lookup/${accessCode}`);
+  const ok = await req('GET', `/api/lookup?email=${encodeURIComponent(studentEmail)}`);
   assert.equal(ok.status, 200);
   assert.equal(ok.json.submissions.length, 1);
   assert.equal(ok.json.submissions[0].status, 'pending');
@@ -150,7 +149,7 @@ test('a volunteer can submit again by email without entering a PIN', async () =>
     body: submission({ event_name: 'Second Event', event_date: '2026-09-21' }),
   });
   assert.equal(r.status, 201, JSON.stringify(r.json));
-  assert.equal(r.json.access_code, null, 'the PIN is revealed only on the first submission');
+  assert.equal(r.json.access_code, null, 'dedicated PINs are not used');
   const student = db.prepare('SELECT id FROM students WHERE email = ?').get('test.student@example.org') as any;
   const count = db.prepare('SELECT COUNT(*) AS n FROM submissions WHERE student_id = ?').get(student.id) as any;
   assert.equal(count.n, 2, 'both submissions belong to the same email-based record');
@@ -220,7 +219,7 @@ test('approval is recorded in the audit log with actor', async () => {
 });
 
 test('lookup now shows approved hours and medal progress (elementary 3h: 22 silver / 47 gold remaining)', async () => {
-  const ok = await req('GET', `/api/lookup/${accessCode}`);
+  const ok = await req('GET', `/api/lookup?email=${encodeURIComponent(studentEmail)}`);
   assert.equal(ok.json.total_approved_hours, 3);
   assert.equal(ok.json.medals.silver.remaining, 22);
   assert.equal(ok.json.medals.gold.remaining, 47);
@@ -270,7 +269,7 @@ test('medal requirements respect school level (middle: 50/100)', async () => {
   const sub = await req('POST', '/api/submissions', { body: submission({ email: 'mid@example.org', school_level: 'middle', event_name: 'STEAM Camp', event_date: '2026-08-01', start_time: '09:00', end_time: '12:00', total_hours: 3 }) });
   assert.equal(sub.status, 201);
   await req('POST', `/api/admin/submissions/${sub.json.submission_id}/approve`, { cookie: ownerCookie, body: { approval_first_name: 'Jordan', approval_last_name: 'Lee' } });
-  const lookup = await req('GET', `/api/lookup/${sub.json.access_code}`);
+  const lookup = await req('GET', '/api/lookup?email=mid%40example.org');
   assert.equal(lookup.json.medals.silver.target, 50);
   assert.equal(lookup.json.medals.gold.target, 100);
   assert.equal(lookup.json.medals.silver.remaining, 47);
@@ -278,12 +277,12 @@ test('medal requirements respect school level (middle: 50/100)', async () => {
 
 test('retired public volunteer directory leaks no student data', async () => {
   const dir = await req('GET', '/api/directory');
-  assert.equal(dir.status, 410, 'the public directory was replaced by the PIN-protected tool box');
+  assert.equal(dir.status, 410, 'the public directory was replaced by the private email lookup tool');
   assert.ok(!('students' in (dir.json as Record<string, unknown>)), 'no student records may be returned');
 });
 
-test('a lookup member cookie does not re-open the retired directory or records sheet', async () => {
-  const lookup = await req('GET', `/api/lookup/${accessCode}`);
+test('an email lookup cookie does not re-open the retired directory or records sheet', async () => {
+  const lookup = await req('GET', `/api/lookup?email=${encodeURIComponent(studentEmail)}`);
   const memberCookie = cookieFrom(lookup.setCookie);
   assert.ok(memberCookie, 'lookup still issues the member proof cookie');
   const dir = await req('GET', '/api/directory', { cookie: memberCookie });

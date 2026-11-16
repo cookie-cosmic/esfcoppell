@@ -225,7 +225,7 @@ function ReviewModal({ id, onClose, onChanged }: { id: string; onClose: () => vo
         toast('success', 'Submission declined with reason.');
       } else if (kind === 'correct') {
         await api.post(`/api/admin/submissions/${id}/request-correction`, { reason });
-        toast('info', 'Correction requested — student will see your feedback via their tracking code.');
+        toast('info', 'Correction requested — student will see your feedback after looking up their email.');
       } else {
         await api.post(`/api/admin/submissions/${id}/note`, { note });
         toast('success', 'Internal note recorded.');

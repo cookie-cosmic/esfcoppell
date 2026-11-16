@@ -16,7 +16,7 @@ import {
 import { ah, ApiError } from '../lib/http.js';
 import { MEMBER_COOKIE, memberCookieValue, verifyMember, sessionCookieOptions, signMember } from '../lib/auth.js';
 import { rateLimit, HOUR } from '../lib/ratelimit.js';
-import { validateSubmission, createSubmission, correctSubmission, hourRules } from '../lib/submissions.js';
+import { validateSubmission, createSubmission, correctSubmission, correctSubmissionByEmail, hourRules } from '../lib/submissions.js';
 
 export const publicRouter = Router();
 
@@ -276,6 +276,57 @@ publicRouter.post(
     const created = createSubmission(normalized, computedHours);
     res.status(201);
     return created;
+  })
+);
+
+publicRouter.get(
+  '/lookup',
+  ah((req, res) => {
+    const rl = rateLimit(`lookup-email:${req.ip}`, 30, HOUR);
+    if (!rl.ok) throw new ApiError(429, `Too many lookups. Try again in ${rl.retryInSec}s.`);
+    const email = typeof req.query.email === 'string' ? req.query.email.trim().toLowerCase() : '';
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) throw new ApiError(422, 'Enter the email used for your submissions.');
+    const student = db.prepare('SELECT id, first_name, last_name, email, school_level FROM students WHERE email = ?').get(email) as any;
+    if (!student) throw new ApiError(404, 'No volunteer record found for that email.');
+    const submissions = db.prepare('SELECT * FROM submissions WHERE student_id = ? ORDER BY created_at DESC').all(student.id) as any[];
+    const medals = getSetting<Record<string, { silver: number; gold: number }>>('medal_requirements');
+    const total = approvedTotalFor(student.id);
+    const reqs = medals[student.school_level] ?? { silver: 50, gold: 100 };
+    res.cookie(MEMBER_COOKIE, signMember(student.id), { ...sessionCookieOptions(), maxAge: 30 * 24 * 3_600_000 });
+    return {
+      student: { first_name: student.first_name, last_name: student.last_name, school_level: student.school_level },
+      total_approved_hours: total,
+      medals: {
+        silver: { target: reqs.silver, remaining: Math.max(0, round2(reqs.silver - total)), complete: total >= reqs.silver },
+        gold: { target: reqs.gold, remaining: Math.max(0, round2(reqs.gold - total)), complete: total >= reqs.gold },
+      },
+      submissions: submissions.map((s) => ({
+        id: s.id, event_name: s.event_name, event_type: s.event_type, event_date: s.event_date,
+        start_time: s.start_time, end_time: s.end_time, total_hours: s.total_hours, status: s.status,
+        feedback: s.status === 'declined' || s.status === 'correction_requested' ? s.decline_reason : null,
+        details: s.status === 'correction_requested' ? {
+          first_name: student.first_name, last_name: student.last_name, email: student.email,
+          school_level: student.school_level, event_name: s.event_name, event_type: s.event_type,
+          event_date: s.event_date, start_time: s.start_time, end_time: s.end_time,
+          total_hours: s.total_hours, approver_primary: s.approver_primary, approver_secondary: s.approver_secondary,
+        } : null,
+        submitted_at: s.created_at, decided_at: s.decided_at,
+      })),
+    };
+  })
+);
+
+publicRouter.post(
+  '/lookup/correct',
+  ah((req) => {
+    const rl = rateLimit(`correct-email:${req.ip}`, 12, HOUR);
+    if (!rl.ok) throw new ApiError(429, `Too many correction attempts. Try again in ${rl.retryInSec}s.`);
+    const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
+    const submissionId = typeof req.body?.submission_id === 'string' ? req.body.submission_id : '';
+    if (!email || !submissionId) throw new ApiError(422, 'Email and submission are required.');
+    const { errors, normalized, computedHours } = validateSubmission(req.body ?? {});
+    if (!normalized) throw new ApiError(422, 'Please fix the highlighted fields.', errors);
+    return correctSubmissionByEmail(submissionId, email, normalized, computedHours);
   })
 );
 

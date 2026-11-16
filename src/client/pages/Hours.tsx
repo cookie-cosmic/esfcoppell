@@ -28,10 +28,6 @@ function clientValidate(f: typeof emptyForm, hourRules: any): Record<string, str
   else if (hours > (hourRules?.max_hours_per_submission ?? 12)) errors.total_hours = `Maximum ${hourRules?.max_hours_per_submission ?? 12} hours per submission.`;
   else if (f.event_type === 'asynchronous' && hours > (hourRules?.async_max_hours ?? 8)) errors.total_hours = `Asynchronous activities are capped at ${hourRules?.async_max_hours ?? 8} hours.`;
   if (!f.approver_primary.trim()) errors.approver_primary = 'A primary approver is required.';
-  if (f.event_type === 'synchronous') {
-    if (!f.start_time) errors.start_time = 'Required for synchronous activities.';
-    if (!f.end_time) errors.end_time = 'Required for synchronous activities.';
-  }
   return errors;
 }
 
@@ -79,7 +75,7 @@ export default function Hours() {
       });
       setCreated(res);
       setForm({ ...emptyForm });
-      toast('success', 'Submission received — it is pending review. Track it below with your dedicated PIN.');
+      toast('success', 'Submission received — it is pending review. Track it below with your email.');
       setTimeout(() => document.getElementById('ticket-toolbox')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 350);
     } catch (err: any) {
       if (err instanceof ApiError && err.status === 422 && err.details) setErrors(err.details);
@@ -116,9 +112,8 @@ export default function Hours() {
                 <div className="card card-pad" style={{ background: 'var(--green-soft)', borderColor: 'var(--green)', marginBottom: 18 }}>
                   <strong style={{ display: 'flex', gap: 8, alignItems: 'center' }}><IconCheck style={{ color: 'var(--green)' }} /> Submission received!</strong>
                   <p className="small muted" style={{ margin: '8px 0' }}>
-                    {created.is_new_access_code ? 'Save this dedicated PIN. It is shown only on your first submission.' : 'Submission received. Use your dedicated PIN in the toolbox below to view it.'}
+                    Use the same email address below to view this submission and your approved hours.
                   </p>
-                  {created.access_code ? <span className="code-chip">{created.access_code}</span> : null}
                 </div>
               ) : null}
               <form onSubmit={onSubmit} noValidate>
@@ -174,10 +169,10 @@ export default function Hours() {
                     hint={form.event_type === 'asynchronous' ? config?.hour_rules?.async_rule_text : 'The hours you actually served — they don’t have to match the start and end times exactly.'}>
                     <input className="input" type="number" min="0.25" max="24" step="0.25" value={form.total_hours} onChange={set('total_hours')} />
                   </Field>
-                  <Field label="Start time" required={form.event_type === 'synchronous'} error={errors.start_time}>
+                  <Field label="Start time (optional)" error={errors.start_time}>
                     <input className="input" type="time" value={form.start_time} onChange={set('start_time')} />
                   </Field>
-                  <Field label="End time" required={form.event_type === 'synchronous'} error={errors.end_time}
+                  <Field label="End time (optional)" error={errors.end_time}
                     hint="If the activity ran past midnight, enter the actual end time — we’ll compute across midnight.">
                     <input className="input" type="time" value={form.end_time} onChange={set('end_time')} />
                   </Field>
@@ -246,23 +241,23 @@ function MedalTable({ config }: { config: any }) {
 }
 
 function TicketStatusToolbox() {
-  const [code, setCode] = useState('');
-  const [submittedCode, setSubmittedCode] = useState('');
+  const [email, setEmail] = useState('');
+  const [submittedEmail, setSubmittedEmail] = useState('');
   const [correction, setCorrection] = useState<any | null>(null);
   const [form, setForm] = useState<any>({});
   const [busy, setBusy] = useState(false);
-  const { data, loading, error } = useApi<any>(submittedCode ? `/api/lookup/${encodeURIComponent(submittedCode)}` : '');
+  const { data, loading, error } = useApi<any>(submittedEmail ? `/api/lookup?email=${encodeURIComponent(submittedEmail)}` : '');
   const toast = useToast();
-  const load = (e: FormEvent) => { e.preventDefault(); setCorrection(null); setSubmittedCode(code.trim().toUpperCase()); };
+  const load = (e: FormEvent) => { e.preventDefault(); setCorrection(null); setSubmittedEmail(email.trim().toLowerCase()); };
   const update = (k: string) => (e: any) => setForm((f: any) => ({ ...f, [k]: e.target.value }));
   const sendCorrection = async (e: FormEvent) => {
     e.preventDefault();
     setBusy(true);
     try {
-      await api.post(`/api/lookup/${encodeURIComponent(submittedCode)}/submissions/${correction.id}/correct`, form);
+      await api.post('/api/lookup/correct', { ...form, email: submittedEmail, submission_id: correction.id });
       toast('success', 'Correction sent back for admin review.');
       setCorrection(null);
-      setSubmittedCode(submittedCode);
+      setSubmittedEmail(submittedEmail);
     } catch (err) { toast('error', err instanceof ApiError ? err.message : 'Could not send correction.'); }
     finally { setBusy(false); }
   };
@@ -271,10 +266,10 @@ function TicketStatusToolbox() {
       <div className="section-head" style={{ marginBottom: 18 }}>
         <span className="eyebrow">Private information center</span>
         <h2>Ticket Status / Self Stats Tool Box</h2>
-        <p className="section-sub small">Enter your dedicated PIN to see only your tickets, approval status, approved hours, and medal progress. No public submission database is shown.</p>
+        <p className="section-sub small">Enter the email used on your submissions to see your tickets, approval status, approved hours, and medal progress. No public submission database is shown.</p>
       </div>
       <form className="toolbar" onSubmit={load}>
-        <input className="input" value={code} onChange={(e) => setCode(e.target.value)} placeholder="Enter your dedicated PIN" aria-label="Dedicated PIN" required />
+        <input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Enter your email" aria-label="Email" required />
         <button className="btn btn-primary" type="submit">View my tickets</button>
       </form>
       {loading ? <Loading label="Loading your private ticket center…" /> : null}

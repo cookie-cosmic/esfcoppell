@@ -1,6 +1,5 @@
 import { db, getSetting, newId, nowIso, audit, approvedTotalFor } from '../db.js';
 import { ApiError, isDate, isTime, syncDurationHours, validReal } from './http.js';
-import { newAccessCode } from './passwords.js';
 import type { AdminPrincipal } from './auth.js';
 
 export interface HourRules {
@@ -82,22 +81,13 @@ export function validateSubmission(raw: Record<string, unknown>): ValidationResu
         : `A single submission cannot exceed ${rules.max_hours_per_submission} hours.`;
   }
 
-  // The reported hours are authoritative. Start/end times are still recorded and the clock
-  // duration is computed for the reviewer, but the two are no longer required to agree.
+  // The reported hours are authoritative. Start/end times are optional context and the clock
+  // duration is computed for the reviewer when both values are supplied.
   let computedHours: number | null = null;
-  if (event_type === 'synchronous') {
-    if (!isTime(start_time ?? '')) errors.start_time = 'Start time (HH:MM) is required for synchronous activities.';
-    if (!isTime(end_time ?? '')) errors.end_time = 'End time (HH:MM) is required for synchronous activities.';
-    if (!errors.start_time && !errors.end_time && start_time && end_time) {
-      computedHours = syncDurationHours(start_time, end_time);
-    }
-  } else if (start_time || end_time) {
-    // Optional times on async work: still sanity-check them if provided.
-    if (start_time && !isTime(start_time)) errors.start_time = 'Invalid time format (HH:MM).';
-    if (end_time && !isTime(end_time)) errors.end_time = 'Invalid time format (HH:MM).';
-    if (start_time && end_time && !errors.start_time && !errors.end_time) {
-      computedHours = syncDurationHours(start_time, end_time);
-    }
+  if (start_time && !isTime(start_time)) errors.start_time = 'Invalid time format (HH:MM).';
+  if (end_time && !isTime(end_time)) errors.end_time = 'Invalid time format (HH:MM).';
+  if (start_time && end_time && !errors.start_time && !errors.end_time) {
+    computedHours = syncDurationHours(start_time, end_time);
   }
 
   const normalized: SubmissionInput = {
@@ -131,15 +121,6 @@ export interface CreatedSubmission {
 export function createSubmission(input: SubmissionInput, computedHours: number | null): CreatedSubmission {
   return db.transaction(() => {
     let student = db.prepare('SELECT id FROM students WHERE email = ?').get(input.email) as { id: string } | undefined;
-    if (input.access_code) {
-      const linked = db.prepare('SELECT student_id FROM access_codes WHERE code = ?').get(input.access_code) as { student_id: string } | undefined;
-      if (!linked) throw new ApiError(422, 'That dedicated PIN was not found. Check it and try again.');
-      const linkedStudent = db.prepare('SELECT id, email FROM students WHERE id = ?').get(linked.student_id) as { id: string; email: string | null } | undefined;
-      if (!linkedStudent || linkedStudent.email !== input.email) {
-        throw new ApiError(422, 'That dedicated PIN does not match the email on this submission.');
-      }
-      student = { id: linked.student_id };
-    }
     let studentId: string;
     if (student) {
       studentId = student.id;
@@ -171,19 +152,6 @@ export function createSubmission(input: SubmissionInput, computedHours: number |
       );
     }
 
-    // Submitting never requires the PIN: hours are tied to the volunteer by email. The PIN is
-    // only issued here (once) so the student can view and correct their own tickets later.
-    const codeRow = db.prepare('SELECT code FROM access_codes WHERE student_id = ?').get(studentId) as { code: string } | undefined;
-    let code: string | null;
-    let isNewAccessCode = false;
-    if (codeRow) {
-      code = codeRow.code;
-    } else {
-      code = newAccessCode();
-      db.prepare('INSERT INTO access_codes (code, student_id, created_at) VALUES (?,?,?)').run(code, studentId, nowIso());
-      isNewAccessCode = true;
-    }
-
     const id = newId('sub');
     db.prepare(
       `INSERT INTO submissions
@@ -205,7 +173,7 @@ export function createSubmission(input: SubmissionInput, computedHours: number |
       input.approver_secondary,
       nowIso()
     );
-    return { submission_id: id, access_code: isNewAccessCode ? code : null, is_new_access_code: isNewAccessCode, status: 'pending' as const };
+    return { submission_id: id, access_code: null, is_new_access_code: false, status: 'pending' as const };
   })();
 }
 
@@ -236,6 +204,27 @@ export function correctSubmission(submissionId: string, accessCode: string, inpu
       submissionId
     );
     audit(null, `Student ${link.student_id}`, 'submission.correction_submitted', 'submission', submissionId, { submitted_at: ts });
+    return { submission_id: submissionId, status: 'pending' as const };
+  })();
+}
+
+export function correctSubmissionByEmail(submissionId: string, email: string, input: SubmissionInput, computedHours: number | null) {
+  return db.transaction(() => {
+    const student = db.prepare('SELECT id FROM students WHERE email = ?').get(email.trim().toLowerCase()) as { id: string } | undefined;
+    if (!student) throw new ApiError(404, 'No volunteer record found for that email.');
+    const sub = db.prepare('SELECT * FROM submissions WHERE id = ? AND student_id = ?').get(submissionId, student.id) as { id: string; status: string } | undefined;
+    if (!sub) throw new ApiError(404, 'Submission not found for that email.');
+    if (sub.status !== 'correction_requested') throw new ApiError(409, 'This submission is not waiting for a correction.');
+    const ts = nowIso();
+    db.prepare(
+      `UPDATE submissions SET event_id=?, event_name=?, event_type=?, event_date=?, start_time=?, end_time=?,
+       total_hours=?, computed_hours=?, approver_primary=?, approver_secondary=?, status='pending',
+       decline_reason=NULL, decided_at=NULL, decided_by=NULL, admin_note=NULL WHERE id=?`
+    ).run(
+      input.event_id, input.event_name, input.event_type, input.event_date, input.start_time, input.end_time,
+      input.total_hours, computedHours, input.approver_primary, input.approver_secondary, submissionId
+    );
+    audit(null, `Student ${student.id}`, 'submission.correction_submitted', 'submission', submissionId, { submitted_at: ts });
     return { submission_id: submissionId, status: 'pending' as const };
   })();
 }

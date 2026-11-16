@@ -10,7 +10,6 @@ export default function Volunteers() {
   const [level, setLevel] = useState('');
   const [sort, setSort] = useState('name');
   const [includeInactive, setIncludeInactive] = useState(false);
-  const [view, setView] = useState<'volunteers' | 'pins'>('volunteers');
   const [openId, setOpenId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const { data: config } = useApi<any>('/api/config');
@@ -26,14 +25,11 @@ export default function Volunteers() {
       <div className="admin-topbar">
         <h1>Volunteer Management</h1>
         <span className="spacer" />
-        <div className="tabs" role="tablist">
-          <button className={view === 'volunteers' ? 'active' : ''} onClick={() => setView('volunteers')}>Volunteer records</button>
-          <button className={view === 'pins' ? 'active' : ''} onClick={() => setView('pins')}>Dedicated PIN directory</button>
-        </div>
+        <div className="tabs" role="tablist"><span className="active">Volunteer records</span></div>
         <button className="btn btn-primary btn-sm" onClick={() => setAdding(true)}><IconPlus width={15} height={15} /> Add student</button>
-        {view === 'volunteers' ? <a className="btn btn-outline btn-sm" href="/api/admin/students/export.csv">Export CSV</a> : null}
+        <a className="btn btn-outline btn-sm" href="/api/admin/students/export.csv">Export CSV</a>
       </div>
-      {view === 'volunteers' ? <div className="toolbar">
+      <div className="toolbar">
         <input className="input" placeholder="Search name or email…" value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Search students" />
         <select className="input" value={level} onChange={(e) => setLevel(e.target.value)} aria-label="Filter by level">
           <option value="">All levels</option>
@@ -44,18 +40,10 @@ export default function Volunteers() {
           <option value="hours">Sort: approved hours</option>
         </select>
         <label className="row tiny muted" style={{ gap: 6 }}><input type="checkbox" checked={includeInactive} onChange={(e) => setIncludeInactive(e.target.checked)} /> include inactive</label>
-      </div> : <p className="muted small">Use this private directory to help a volunteer recover the dedicated PIN tied to their account. Never publish or export this list.</p>}
+      </div>
       {loading ? <Loading /> : null}
       {error ? <ErrorNote message={error} retry={reload} /> : null}
-      {data && view === 'pins' ? (
-        <div className="table-wrap">
-          <table className="table">
-            <thead><tr><th>Volunteer</th><th>Email</th><th>School level</th><th>Dedicated PIN</th></tr></thead>
-            <tbody>{data.map((s) => <tr key={s.id}><td><strong>{s.first_name} {s.last_name}</strong></td><td>{s.email || '—'}</td><td>{LEVEL_LABEL[s.school_level] ?? s.school_level}</td><td><span className="code-chip">{s.access_code || 'Not issued yet'}</span></td></tr>)}</tbody>
-          </table>
-        </div>
-      ) : null}
-      {data && view === 'volunteers' ? (
+      {data ? (
         <>
           <div className="table-wrap">
             <table className="table">
@@ -198,7 +186,6 @@ function StudentModal({ id, onClose, onChanged, config }: { id: string; onClose:
           <div className="row" style={{ marginBottom: 14 }}>
             <span className="badge gray">{LEVEL_LABEL[s.school_level]}</span>
             <span className="badge approved">{fmtHours(s.total_hours)} approved hours</span>
-            {s.access_code ? <span className="tiny muted">tracking code {s.access_code}</span> : null}
             <span className="spacer" />
             <div className="tabs" style={{ margin: 0, border: 0 }}>
               {(['records', 'submissions', 'edit'] as const).map((t) => (

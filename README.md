@@ -77,7 +77,7 @@ without the PIN.
 
 ## Volunteer-hour workflow (core rules)
 
-1. Student submits → status **Pending**, tracking code (`ES-XXXX-XXXX-XXXX`) issued once per student.
+1. Student submits → status **Pending**, and submissions are linked by the student's email address.
 2. Hours are **never** counted while pending/declined. No hours for merely viewing/joining.
 3. An authorized reviewer approves → a single `service_records` row is created **atomically**;
    approvals are idempotent (unique approval decision + unique record per submission), so a
@@ -104,7 +104,7 @@ public content and its own session cookie.
 - `docs/SCHEMA.md` – database schema, integrity rules, and the server-side authorization matrix.
 - `docs/DEPLOYMENT.md` – deployment (single Node host or GitHub Pages + API), Supabase option,
   admin onboarding, and remaining external setup.
-- `DEMO-ACCESS.md` – credentials & tracking codes for **this sandbox demo only**.
+- `DEMO-ACCESS.md` – credentials for **this sandbox demo only**.
 
 ## Sample data
 

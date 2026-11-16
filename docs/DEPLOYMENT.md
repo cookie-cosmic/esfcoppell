@@ -59,7 +59,7 @@ that hint, keeps serving from local SQLite, retries the restore with backoff whi
 database is still empty, and reports `persistence.supabase_state` as `degraded` on
 `/api/health`. Data written while degraded is not durable, so fix the variable and redeploy. On first boot the server creates the private
 `app_persistence_snapshots` and `app_persistence_assets` tables in Supabase automatically.
-The snapshot contains all application tables, including admin sessions, volunteer PINs,
+The snapshot contains all application tables, including admin sessions, volunteer submissions,
 submissions, approvals, settings, CMS content, audit logs, and version history. Media files
 are stored in `app_persistence_assets` so profile photos also survive filesystem resets.
 
@@ -118,7 +118,7 @@ the owner identity.
    successful PIN sign-in creates the owner identity.
 2. Owner signs in (hidden trigger: five clicks on the tiny footer smile icon within 3 s).
    Sign-in is **PIN-only**; password login is disabled.
-3. Review **Settings** (medal targets and hour rules). Public volunteer records are disabled; volunteers use the PIN-protected Ticket Status / Self Stats Tool Box.
+3. Review **Settings** (medal targets and hour rules). Public volunteer records are disabled; volunteers use the email-based Ticket Status / Self Stats Tool Box.
 4. Enter real content: Homepage Editor, Team, Events & Activities, Media Library.
    Skip `npm run seed:sample` in production (it is demo data and refuses to run over real
    student records).
@@ -135,7 +135,7 @@ the owner identity.
 - Real chapter photography/profile photos (sample images currently bundled from the
   foundation's public site; replace via Media Library).
 - Optional: transactional email for status notifications (currently statuses are pulled
-  securely by tracking code — no email service required).
+  by the submission email address — no email service required).
 - Optional: custom domain + TLS on the API host.
 
 ## Website versions
