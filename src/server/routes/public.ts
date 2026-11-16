@@ -127,7 +127,7 @@ publicRouter.get(
 publicRouter.get(
   '/events',
   ah((req) => {
-    const scope = req.query.scope === 'past' ? 'past' : 'upcoming';
+    const scope = req.query.scope === 'past' ? 'past' : req.query.scope === 'all' ? 'all' : 'upcoming';
     const now = nowIso();
     const rows =
       scope === 'past'
@@ -137,6 +137,13 @@ publicRouter.get(
                ORDER BY starts_at DESC, created_at DESC`
             )
             .all(now) as any[])
+        : scope === 'all'
+          ? (db
+              .prepare(
+                `SELECT * FROM events WHERE status IN ('published','canceled','completed','archived')
+                 ORDER BY CASE WHEN starts_at IS NULL THEN 1 ELSE 0 END, starts_at DESC, created_at DESC`
+              )
+              .all() as any[])
         : (db
             .prepare(
               `SELECT * FROM events WHERE status IN ('published','canceled') AND (starts_at IS NULL OR starts_at >= ?)

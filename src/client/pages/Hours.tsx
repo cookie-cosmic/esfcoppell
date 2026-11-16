@@ -35,7 +35,7 @@ export default function Hours() {
   usePageTitle('Volunteer Hours');
   const toast = useToast();
   const { data: config } = useApi<any>('/api/config');
-  const { data: events } = useApi<any[]>('/api/events?scope=upcoming');
+  const { data: events } = useApi<any[]>('/api/events?scope=all');
   const { data: activities } = useApi<any[]>('/api/activities');
   const [form, setForm] = useState({ ...emptyForm });
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -149,7 +149,7 @@ export default function Hours() {
                     hint="Pick a chapter event/activity, or “Other approved activity”.">
                     <select className="input" value={form.event_pick} onChange={set('event_pick')}>
                       <option value="">Select…</option>
-                      <optgroup label="Upcoming / recent chapter events">
+                      <optgroup label="Chapter events (past and upcoming)">
                         {eventList.filter((e) => e.status === 'published').map((e) => <option key={e.id} value={e.title}>{e.title}</option>)}
                       </optgroup>
                       <optgroup label="Ongoing activities">
