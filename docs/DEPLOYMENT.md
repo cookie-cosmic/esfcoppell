@@ -144,7 +144,10 @@ the owner identity.
   Edit**, select **Web app**, set **Execute as: Me** and **Who has access: Anyone**, choose
   **New version**, and deploy. Use the resulting `/exec` URL. The endpoint must return JSON
   with `{ "ok": true }`; an HTML error page is treated as a failed backup. The handler creates
-  the `Submissions` tab automatically if it does not exist.
+  the `Submissions` tab automatically if it does not exist. If the Apps Script project is
+  standalone rather than opened from the spreadsheet, set `SPREADSHEET_ID` at the top of
+  `Code.gs` to the spreadsheet ID (the value between `/d/` and `/edit` in its URL), or add
+  a Script Property with that name.
 - Optional: custom domain + TLS on the API host.
 
 ## Website versions

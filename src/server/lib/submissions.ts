@@ -188,6 +188,26 @@ export function createSubmission(input: SubmissionInput, computedHours: number |
   })();
 }
 
+export function deleteSubmission(submissionId: string, admin: AdminPrincipal) {
+  return db.transaction(() => {
+    const submission = db.prepare('SELECT id, status, student_id, event_name, total_hours FROM submissions WHERE id = ?').get(submissionId) as
+      | { id: string; status: string; student_id: string; event_name: string; total_hours: number }
+      | undefined;
+    if (!submission) throw new ApiError(404, 'Submission not found.');
+    if (submission.status === 'approved') {
+      throw new ApiError(409, 'Approved submissions cannot be deleted. Reverse the resulting service record instead.');
+    }
+    db.prepare('DELETE FROM submissions WHERE id = ?').run(submission.id);
+    audit(admin.id, admin.name, 'submission.delete', 'submission', submission.id, {
+      student_id: submission.student_id,
+      event_name: submission.event_name,
+      total_hours: submission.total_hours,
+      status: submission.status,
+    });
+    return { ok: true, submission_id: submission.id, deleted: true };
+  })();
+}
+
 /** Replace the data on a correction-requested submission and return it to review. */
 export function correctSubmission(submissionId: string, accessCode: string, input: SubmissionInput, computedHours: number | null) {
   const result = db.transaction(() => {

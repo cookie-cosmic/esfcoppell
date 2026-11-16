@@ -203,14 +203,14 @@ function BulkApprovalModal({ selectedIds, visibleIds, eventNames, defaultEvent, 
 function ReviewModal({ id, onClose, onChanged }: { id: string; onClose: () => void; onChanged: () => void }) {
   const { data, loading, error, reload } = useApi<any>(`/api/admin/submissions/${id}`);
   const toast = useToast();
-  const [confirm, setConfirm] = useState<null | 'approve' | 'decline' | 'correct'>(null);
+  const [confirm, setConfirm] = useState<null | 'approve' | 'decline' | 'correct' | 'delete'>(null);
   const [reason, setReason] = useState('');
   const [note, setNote] = useState('');
   const [approvalFirstName, setApprovalFirstName] = useState('');
   const [approvalLastName, setApprovalLastName] = useState('');
   const [busy, setBusy] = useState(false);
 
-  const act = async (kind: 'approve' | 'decline' | 'correct' | 'note') => {
+  const act = async (kind: 'approve' | 'decline' | 'correct' | 'note' | 'delete') => {
     setBusy(true);
     try {
       if (kind === 'approve') {
@@ -226,6 +226,9 @@ function ReviewModal({ id, onClose, onChanged }: { id: string; onClose: () => vo
       } else if (kind === 'correct') {
         await api.post(`/api/admin/submissions/${id}/request-correction`, { reason });
         toast('info', 'Correction requested — student will see your feedback after looking up their email.');
+      } else if (kind === 'delete') {
+        await api.del(`/api/admin/submissions/${id}?confirm=DELETE`);
+        toast('success', 'Submission deleted.');
       } else {
         await api.post(`/api/admin/submissions/${id}/note`, { note });
         toast('success', 'Internal note recorded.');
@@ -237,6 +240,7 @@ function ReviewModal({ id, onClose, onChanged }: { id: string; onClose: () => vo
       setApprovalLastName('');
       reload();
       onChanged();
+      if (kind === 'delete') onClose();
     } catch (e) {
       toast('error', e instanceof ApiError ? e.message : 'Action failed.');
     } finally {
@@ -280,6 +284,7 @@ function ReviewModal({ id, onClose, onChanged }: { id: string; onClose: () => vo
                 )}
                 <button className="btn btn-ghost" onClick={() => act('note')}>Save note only</button>
               </div>
+              {s.status !== 'approved' ? <button className="btn btn-danger btn-sm" onClick={() => setConfirm('delete')}>Delete submission</button> : null}
               {confirm === 'decline' || confirm === 'correct' ? (
                 <div className="card card-pad" style={{ marginTop: 14, background: 'var(--crimson-soft)' }}>
                   <Field label={confirm === 'decline' ? 'Decline reason (shared with student)' : 'What needs correcting? (shared with student)'} required>
@@ -328,6 +333,16 @@ function ReviewModal({ id, onClose, onChanged }: { id: string; onClose: () => vo
             <Field label="Last name" required><input className="input" value={approvalLastName} onChange={(e) => setApprovalLastName(e.target.value)} /></Field>
           </div>
         </Modal>
+      ) : null}
+      {confirm === 'delete' ? (
+        <ConfirmDialog
+          title="Delete this submission?"
+          body="This permanently removes the submission and its review history. Approved submissions must be reversed instead."
+          confirmLabel="Delete submission"
+          danger
+          onCancel={() => setConfirm(null)}
+          onConfirm={() => act('delete')}
+        />
       ) : null}
     </Modal>
   );

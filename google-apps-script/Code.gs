@@ -1,4 +1,12 @@
 const DEFAULT_TAB = 'Submissions';
+// For a standalone Apps Script project, set this to the destination spreadsheet ID
+// or add a Script Property named SPREADSHEET_ID. Leave blank when bound to the sheet.
+const SPREADSHEET_ID = '';
+
+function getSpreadsheet() {
+  const configuredId = SPREADSHEET_ID || PropertiesService.getScriptProperties().getProperty('SPREADSHEET_ID');
+  return configuredId ? SpreadsheetApp.openById(configuredId) : SpreadsheetApp.getActiveSpreadsheet();
+}
 
 function doPost(e) {
   try {
@@ -7,8 +15,8 @@ function doPost(e) {
       return json({ ok: false, error: 'Expected action=upsert and a submission with an id.' });
     }
 
-    const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
-    if (!spreadsheet) return json({ ok: false, error: 'The script must be bound to the destination spreadsheet.' });
+    const spreadsheet = getSpreadsheet();
+    if (!spreadsheet) return json({ ok: false, error: 'Set SPREADSHEET_ID in this script or bind it to the destination spreadsheet.' });
     const sheetName = request.sheet || DEFAULT_TAB;
     const sheet = spreadsheet.getSheetByName(sheetName) || spreadsheet.insertSheet(sheetName);
 
@@ -48,7 +56,8 @@ function doPost(e) {
 }
 
 function doGet() {
-  return json({ ok: true, service: 'endless-smiles-google-sheets' });
+  const spreadsheet = getSpreadsheet();
+  return json({ ok: Boolean(spreadsheet), service: 'endless-smiles-google-sheets', sheet: spreadsheet ? spreadsheet.getName() : null });
 }
 
 function json(value) {

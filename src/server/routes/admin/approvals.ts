@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { db, computeChapterStats } from '../../db.js';
 import { ah, ApiError } from '../../lib/http.js';
 import { requireAdmin, requireRole } from '../../lib/auth.js';
-import { approveSubmission, approveSubmissions, declineSubmission, requestCorrection, addReviewNote } from '../../lib/submissions.js';
+import { approveSubmission, approveSubmissions, declineSubmission, requestCorrection, addReviewNote, deleteSubmission } from '../../lib/submissions.js';
 
 export const approvalsRouter = Router();
 
@@ -118,6 +118,15 @@ approvalsRouter.post(
     const eventName = typeof req.body?.event_name === 'string' && req.body.event_name.trim() ? req.body.event_name.trim() : undefined;
     const note = typeof req.body?.note === 'string' ? req.body.note.slice(0, 500) : undefined;
     return approveSubmissions(ids, eventName, admin, { first_name: firstName, last_name: lastName }, note);
+  })
+);
+
+approvalsRouter.delete(
+  '/submissions/:id',
+  ah((req, res) => {
+    const admin = requireRole(req, 'admin', 'owner');
+    if (req.query.confirm !== 'DELETE') throw new ApiError(400, 'Submission deletion requires confirm=DELETE.');
+    return deleteSubmission(req.params.id, admin);
   })
 );
 
