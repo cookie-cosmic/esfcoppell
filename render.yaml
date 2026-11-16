@@ -23,6 +23,10 @@ services:
         generateValue: true
       - key: SUPABASE_DB_URL
         sync: false
+      - key: GOOGLE_SHEETS_WEBHOOK_URL
+        sync: false
+      - key: GOOGLE_SHEETS_TAB
+        value: Submissions
     disk:
       name: endless-smiles-data
       mountPath: /var/data

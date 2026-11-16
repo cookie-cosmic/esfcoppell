@@ -2,6 +2,7 @@ import { db, getSetting, newId, nowIso, audit, approvedTotalFor } from '../db.js
 import { ApiError, isDate, isTime, syncDurationHours, validReal } from './http.js';
 import { newAccessCode } from './passwords.js';
 import type { AdminPrincipal } from './auth.js';
+import { syncSubmissionToGoogleSheet } from './google-sheets.js';
 
 export interface HourRules {
   max_hours_per_submission: number;
@@ -189,7 +190,7 @@ export function createSubmission(input: SubmissionInput, computedHours: number |
 
 /** Replace the data on a correction-requested submission and return it to review. */
 export function correctSubmission(submissionId: string, accessCode: string, input: SubmissionInput, computedHours: number | null) {
-  return db.transaction(() => {
+  const result = db.transaction(() => {
     const link = db.prepare('SELECT student_id FROM access_codes WHERE code = ?').get(accessCode) as { student_id: string } | undefined;
     if (!link) throw new ApiError(404, 'Dedicated PIN not found.');
     const sub = db.prepare('SELECT * FROM submissions WHERE id = ? AND student_id = ?').get(submissionId, link.student_id) as { id: string; status: string } | undefined;
@@ -216,10 +217,12 @@ export function correctSubmission(submissionId: string, accessCode: string, inpu
     audit(null, `Student ${link.student_id}`, 'submission.correction_submitted', 'submission', submissionId, { submitted_at: ts });
     return { submission_id: submissionId, status: 'pending' as const };
   })();
+  void syncSubmissionToGoogleSheet(result.submission_id);
+  return result;
 }
 
 export function correctSubmissionByEmail(submissionId: string, email: string, input: SubmissionInput, computedHours: number | null) {
-  return db.transaction(() => {
+  const result = db.transaction(() => {
     const student = db.prepare('SELECT id FROM students WHERE email = ?').get(email.trim().toLowerCase()) as { id: string } | undefined;
     if (!student) throw new ApiError(404, 'No volunteer record found for that email.');
     const sub = db.prepare('SELECT * FROM submissions WHERE id = ? AND student_id = ?').get(submissionId, student.id) as { id: string; status: string } | undefined;
@@ -237,6 +240,8 @@ export function correctSubmissionByEmail(submissionId: string, email: string, in
     audit(null, `Student ${student.id}`, 'submission.correction_submitted', 'submission', submissionId, { submitted_at: ts });
     return { submission_id: submissionId, status: 'pending' as const };
   })();
+  void syncSubmissionToGoogleSheet(result.submission_id);
+  return result;
 }
 
 export interface DecisionResult {
@@ -303,7 +308,9 @@ export function approveSubmission(
   attribution: ApprovalAttribution,
   note?: string
 ): DecisionResult {
-  return db.transaction(() => approveSubmissionInTransaction(submissionId, admin, attribution, note))();
+  const result = db.transaction(() => approveSubmissionInTransaction(submissionId, admin, attribution, note))();
+  void syncSubmissionToGoogleSheet(result.submission_id);
+  return result;
 }
 
 export function approveSubmissions(
@@ -326,17 +333,19 @@ export function approveSubmissions(
     const uniqueIds = [...new Set(ids)];
     if (!uniqueIds.length) throw new ApiError(400, 'Select at least one submission or choose an event.');
     const results = uniqueIds.map((id) => approveSubmissionInTransaction(id, admin, attribution, note));
-    return {
+    const response = {
       approved: results.filter((result) => !result.idempotent).length,
       already_approved: results.filter((result) => result.idempotent).length,
       results,
     };
+    for (const result of results) void syncSubmissionToGoogleSheet(result.submission_id);
+    return response;
   })();
 }
 
 export function declineSubmission(submissionId: string, admin: AdminPrincipal, reason: string): DecisionResult {
   if (!reason || reason.trim().length < 3) throw new ApiError(400, 'A decline reason is required.');
-  return db.transaction(() => {
+  const result = db.transaction(() => {
     const sub = db.prepare('SELECT id, status, student_id FROM submissions WHERE id = ?').get(submissionId) as
       | { id: string; status: string; student_id: string }
       | undefined;
@@ -362,6 +371,8 @@ export function declineSubmission(submissionId: string, admin: AdminPrincipal, r
     audit(admin.id, admin.name, 'submission.decline', 'submission', submissionId, { reason: reason.trim() });
     return { idempotent: false, submission_id: sub.id, status: 'declined' };
   })();
+  void syncSubmissionToGoogleSheet(result.submission_id);
+  return result;
 }
 
 export function requestCorrection(submissionId: string, admin: AdminPrincipal, reason: string): DecisionResult {
@@ -386,7 +397,9 @@ export function requestCorrection(submissionId: string, admin: AdminPrincipal, r
     ts
   );
   audit(admin.id, admin.name, 'submission.request_correction', 'submission', submissionId, { reason: reason.trim() });
-  return { idempotent: false, submission_id: sub.id, status: 'correction_requested' };
+  const result = { idempotent: false, submission_id: sub.id, status: 'correction_requested' };
+  void syncSubmissionToGoogleSheet(result.submission_id);
+  return result;
 }
 
 export function addReviewNote(submissionId: string, admin: AdminPrincipal, note: string) {

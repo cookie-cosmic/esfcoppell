@@ -17,6 +17,7 @@ import { ah, ApiError } from '../lib/http.js';
 import { MEMBER_COOKIE, memberCookieValue, verifyMember, sessionCookieOptions, signMember } from '../lib/auth.js';
 import { rateLimit, HOUR } from '../lib/ratelimit.js';
 import { validateSubmission, createSubmission, correctSubmission, correctSubmissionByEmail, hourRules } from '../lib/submissions.js';
+import { syncSubmissionToGoogleSheet } from '../lib/google-sheets.js';
 
 export const publicRouter = Router();
 
@@ -274,6 +275,7 @@ publicRouter.post(
     const { errors, normalized, computedHours } = validateSubmission(req.body ?? {});
     if (!normalized) throw new ApiError(422, 'Please fix the highlighted fields.', errors);
     const created = createSubmission(normalized, computedHours);
+    void syncSubmissionToGoogleSheet(created.submission_id);
     res.status(201);
     return created;
   })

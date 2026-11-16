@@ -136,6 +136,9 @@ the owner identity.
   foundation's public site; replace via Media Library).
 - Optional: transactional email for status notifications (currently statuses are pulled
   by the first-submission PIN or submission email address — no email service required).
+- Optional: Google Sheets backup. Set the server-only `GOOGLE_SHEETS_WEBHOOK_URL` to the
+  deployed Apps Script `/exec` URL and `GOOGLE_SHEETS_TAB=Submissions`. The API sends an
+  upsert after each submission and status change, including the current `status` column.
 - Optional: custom domain + TLS on the API host.
 
 ## Website versions
