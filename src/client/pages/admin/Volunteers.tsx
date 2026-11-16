@@ -271,6 +271,7 @@ function StudentModal({ id, onClose, onChanged, config }: { id: string; onClose:
           ) : null}
 
           {tab === 'edit' ? (
+            <>
             <div className="form-grid">
               <Field label="First name"><input className="input" defaultValue={s.first_name} onBlur={(e) => e.target.value !== s.first_name && saveEdit({ first_name: e.target.value })} /></Field>
               <Field label="Last name"><input className="input" defaultValue={s.last_name} onBlur={(e) => e.target.value !== s.last_name && saveEdit({ last_name: e.target.value })} /></Field>
@@ -285,6 +286,7 @@ function StudentModal({ id, onClose, onChanged, config }: { id: string; onClose:
                 {s.active ? <span className="tiny muted" style={{ marginLeft: 10 }}>Soft-deletes: history is preserved for accountability.</span> : <span className="badge gray">inactive</span>}
               </div>
             </div>
+            </>
           ) : null}
         </>
       ) : null}

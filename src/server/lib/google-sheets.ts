@@ -30,8 +30,17 @@ export async function syncSubmissionToGoogleSheet(submissionId: string): Promise
       body: JSON.stringify({ action: 'upsert', sheet: SHEET_TAB, submission: row }),
       signal: controller.signal,
     });
-    if (!response.ok) {
-      console.error(`[google-sheets] sync failed for ${submissionId}: HTTP ${response.status}`);
+    const body = await response.text();
+    let result: { ok?: boolean; error?: string } | null = null;
+    try {
+      result = JSON.parse(body) as { ok?: boolean; error?: string };
+    } catch {
+      result = null;
+    }
+    if (!response.ok || !result?.ok) {
+      console.error(
+        `[google-sheets] sync failed for ${submissionId}: HTTP ${response.status} ${result?.error ?? body.slice(0, 240)}`
+      );
     }
   } catch (error) {
     console.error(`[google-sheets] sync failed for ${submissionId}`, error);

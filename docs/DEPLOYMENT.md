@@ -139,6 +139,10 @@ the owner identity.
 - Optional: Google Sheets backup. Set the server-only `GOOGLE_SHEETS_WEBHOOK_URL` to the
   deployed Apps Script `/exec` URL and `GOOGLE_SHEETS_TAB=Submissions`. The API sends an
   upsert after each submission and status change, including the current `status` column.
+  The matching handler is provided in [google-apps-script/Code.gs](../google-apps-script/Code.gs):
+  paste it into the Apps Script project, deploy a new Web app version, and use the resulting
+  `/exec` URL. The endpoint must return JSON with `{ "ok": true }`; an HTML error page is
+  treated as a failed backup.
 - Optional: custom domain + TLS on the API host.
 
 ## Website versions
