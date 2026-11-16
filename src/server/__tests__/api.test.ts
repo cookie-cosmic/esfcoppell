@@ -33,6 +33,7 @@ async function req(method: string, p: string, opts: { body?: unknown; cookie?: s
     },
     body: opts.body === undefined ? undefined : JSON.stringify(opts.body),
   });
+
   const setCookie = res.headers.getSetCookie?.() ?? [];
   let text = await res.text();
   let json: any = null;
@@ -109,13 +110,15 @@ test('reported hours are authoritative and need not match the clock times', asyn
 });
 
 const studentEmail = 'test.student@example.org';
+let accessCode = '';
 let submissionId = '';
 
 test('valid submission is created PENDING and uses email tracking', async () => {
   const r = await req('POST', '/api/submissions', { body: submission() });
   assert.equal(r.status, 201);
   assert.equal(r.json.status, 'pending');
-  assert.equal(r.json.access_code, null);
+  assert.match(r.json.access_code, /^ES-/);
+  accessCode = r.json.access_code;
   submissionId = r.json.submission_id;
 
   const row = db.prepare('SELECT status FROM submissions WHERE id = ?').get(submissionId) as any;
@@ -144,12 +147,19 @@ test('lookup with unknown email fails; matching email shows own pending submissi
   assert.equal(ok.json.total_approved_hours, 0, 'pending hours must not count');
 });
 
+test('the first-submission PIN also shows status', async () => {
+  const ok = await req('GET', `/api/lookup/${accessCode}`);
+  assert.equal(ok.status, 200);
+  assert.equal(ok.json.submissions.length, 1);
+  assert.equal(ok.json.submissions[0].status, 'pending');
+});
+
 test('a volunteer can submit again by email without entering a PIN', async () => {
   const r = await req('POST', '/api/submissions', {
     body: submission({ event_name: 'Second Event', event_date: '2026-09-21' }),
   });
   assert.equal(r.status, 201, JSON.stringify(r.json));
-  assert.equal(r.json.access_code, null, 'dedicated PINs are not used');
+  assert.equal(r.json.access_code, null, 'the PIN is only issued on the first submission');
   const student = db.prepare('SELECT id FROM students WHERE email = ?').get('test.student@example.org') as any;
   const count = db.prepare('SELECT COUNT(*) AS n FROM submissions WHERE student_id = ?').get(student.id) as any;
   assert.equal(count.n, 2, 'both submissions belong to the same email-based record');

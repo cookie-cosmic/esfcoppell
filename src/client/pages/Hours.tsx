@@ -112,8 +112,9 @@ export default function Hours() {
                 <div className="card card-pad" style={{ background: 'var(--green-soft)', borderColor: 'var(--green)', marginBottom: 18 }}>
                   <strong style={{ display: 'flex', gap: 8, alignItems: 'center' }}><IconCheck style={{ color: 'var(--green)' }} /> Submission received!</strong>
                   <p className="small muted" style={{ margin: '8px 0' }}>
-                    Use the same email address below to view this submission and your approved hours.
+                    Use the same email address below, or save this PIN to check your status later:
                   </p>
+                  {created.access_code ? <span className="code-chip">{created.access_code}</span> : null}
                 </div>
               ) : null}
               <form onSubmit={onSubmit} noValidate>
@@ -242,19 +243,40 @@ function MedalTable({ config }: { config: any }) {
 
 function TicketStatusToolbox() {
   const [email, setEmail] = useState('');
+  const [pin, setPin] = useState('');
   const [submittedEmail, setSubmittedEmail] = useState('');
+  const [submittedPin, setSubmittedPin] = useState('');
   const [correction, setCorrection] = useState<any | null>(null);
   const [form, setForm] = useState<any>({});
   const [busy, setBusy] = useState(false);
-  const { data, loading, error } = useApi<any>(submittedEmail ? `/api/lookup?email=${encodeURIComponent(submittedEmail)}` : '');
+  const lookupPath = submittedPin
+    ? `/api/lookup/${encodeURIComponent(submittedPin)}`
+    : submittedEmail
+      ? `/api/lookup?email=${encodeURIComponent(submittedEmail)}`
+      : '';
+  const { data, loading, error } = useApi<any>(lookupPath);
   const toast = useToast();
-  const load = (e: FormEvent) => { e.preventDefault(); setCorrection(null); setSubmittedEmail(email.trim().toLowerCase()); };
+  const load = (e: FormEvent) => {
+    e.preventDefault();
+    setCorrection(null);
+    if (pin.trim()) {
+      setSubmittedPin(pin.trim().toUpperCase());
+      setSubmittedEmail('');
+    } else {
+      setSubmittedEmail(email.trim().toLowerCase());
+      setSubmittedPin('');
+    }
+  };
   const update = (k: string) => (e: any) => setForm((f: any) => ({ ...f, [k]: e.target.value }));
   const sendCorrection = async (e: FormEvent) => {
     e.preventDefault();
     setBusy(true);
     try {
-      await api.post('/api/lookup/correct', { ...form, email: submittedEmail, submission_id: correction.id });
+      if (submittedPin) {
+        await api.post(`/api/lookup/${encodeURIComponent(submittedPin)}/submissions/${correction.id}/correct`, form);
+      } else {
+        await api.post('/api/lookup/correct', { ...form, email: submittedEmail, submission_id: correction.id });
+      }
       toast('success', 'Correction sent back for admin review.');
       setCorrection(null);
       setSubmittedEmail(submittedEmail);
@@ -266,10 +288,12 @@ function TicketStatusToolbox() {
       <div className="section-head" style={{ marginBottom: 18 }}>
         <span className="eyebrow">Private information center</span>
         <h2>Ticket Status / Self Stats Tool Box</h2>
-        <p className="section-sub small">Enter the email used on your submissions to see your tickets, approval status, approved hours, and medal progress. No public submission database is shown.</p>
+        <p className="section-sub small">Enter your first-submission PIN or the email used on your submissions to see approval status, approved hours, and medal progress. No public submission database is shown.</p>
       </div>
       <form className="toolbar" onSubmit={load}>
-        <input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Enter your email" aria-label="Email" required />
+        <input className="input" value={pin} onChange={(e) => setPin(e.target.value)} placeholder="PIN from first submission" aria-label="Tracking PIN" />
+        <span className="muted small">or</span>
+        <input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Enter your email" aria-label="Email" />
         <button className="btn btn-primary" type="submit">View my tickets</button>
       </form>
       {loading ? <Loading label="Loading your private ticket center…" /> : null}

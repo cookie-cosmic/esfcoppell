@@ -1,5 +1,6 @@
 import { db, getSetting, newId, nowIso, audit, approvedTotalFor } from '../db.js';
 import { ApiError, isDate, isTime, syncDurationHours, validReal } from './http.js';
+import { newAccessCode } from './passwords.js';
 import type { AdminPrincipal } from './auth.js';
 
 export interface HourRules {
@@ -117,7 +118,7 @@ export interface CreatedSubmission {
   status: 'pending';
 }
 
-/** Creates student (or links by email), issues/reuses a tracking code, stores a PENDING submission. */
+/** Creates student (or links by email), issues/reuses an optional tracking PIN, and stores a PENDING submission. */
 export function createSubmission(input: SubmissionInput, computedHours: number | null): CreatedSubmission {
   return db.transaction(() => {
     let student = db.prepare('SELECT id FROM students WHERE email = ?').get(input.email) as { id: string } | undefined;
@@ -152,6 +153,15 @@ export function createSubmission(input: SubmissionInput, computedHours: number |
       );
     }
 
+    const codeRow = db.prepare('SELECT code FROM access_codes WHERE student_id = ?').get(studentId) as { code: string } | undefined;
+    let accessCode: string | null = codeRow?.code ?? null;
+    let isNewAccessCode = false;
+    if (!accessCode) {
+      accessCode = newAccessCode();
+      db.prepare('INSERT INTO access_codes (code, student_id, created_at) VALUES (?,?,?)').run(accessCode, studentId, nowIso());
+      isNewAccessCode = true;
+    }
+
     const id = newId('sub');
     db.prepare(
       `INSERT INTO submissions
@@ -173,7 +183,7 @@ export function createSubmission(input: SubmissionInput, computedHours: number |
       input.approver_secondary,
       nowIso()
     );
-    return { submission_id: id, access_code: null, is_new_access_code: false, status: 'pending' as const };
+    return { submission_id: id, access_code: isNewAccessCode ? accessCode : null, is_new_access_code: isNewAccessCode, status: 'pending' as const };
   })();
 }
 

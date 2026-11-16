@@ -118,7 +118,7 @@ the owner identity.
    successful PIN sign-in creates the owner identity.
 2. Owner signs in (hidden trigger: five clicks on the tiny footer smile icon within 3 s).
    Sign-in is **PIN-only**; password login is disabled.
-3. Review **Settings** (medal targets and hour rules). Public volunteer records are disabled; volunteers use the email-based Ticket Status / Self Stats Tool Box.
+3. Review **Settings** (medal targets and hour rules). Public volunteer records are disabled; volunteers use the first-submission PIN or email-based Ticket Status / Self Stats Tool Box.
 4. Enter real content: Homepage Editor, Team, Events & Activities, Media Library.
    Skip `npm run seed:sample` in production (it is demo data and refuses to run over real
    student records).
@@ -135,7 +135,7 @@ the owner identity.
 - Real chapter photography/profile photos (sample images currently bundled from the
   foundation's public site; replace via Media Library).
 - Optional: transactional email for status notifications (currently statuses are pulled
-  by the submission email address — no email service required).
+  by the first-submission PIN or submission email address — no email service required).
 - Optional: custom domain + TLS on the API host.
 
 ## Website versions

@@ -66,7 +66,7 @@ npm run lint             # type-checks server + client
   (President → Vice President → Co-Vice President → six Directors), vacancy support.
 - **Programs & Events** – Section A active activities, Section B upcoming events
   (chronological), Section C past events & achievements (photos, attendance, approved hours).
-- **Volunteer Hours** – submission form (client + server validation), tracking-code lookup,
+- **Volunteer Hours** – submission form (client + server validation), first-submission PIN or email lookup,
   public directory with medal progress, paginated approved service records, medal table.
 
 Admin access is intentionally hidden: click the tiny smile icon at the **bottom-right of the
@@ -77,7 +77,7 @@ without the PIN.
 
 ## Volunteer-hour workflow (core rules)
 
-1. Student submits → status **Pending**, and submissions are linked by the student's email address.
+1. Student submits → status **Pending**, and receives a tracking PIN on their first submission; submissions are also linked by email.
 2. Hours are **never** counted while pending/declined. No hours for merely viewing/joining.
 3. An authorized reviewer approves → a single `service_records` row is created **atomically**;
    approvals are idempotent (unique approval decision + unique record per submission), so a
