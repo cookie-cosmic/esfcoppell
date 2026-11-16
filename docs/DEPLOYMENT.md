@@ -140,9 +140,11 @@ the owner identity.
   deployed Apps Script `/exec` URL and `GOOGLE_SHEETS_TAB=Submissions`. The API sends an
   upsert after each submission and status change, including the current `status` column.
   The matching handler is provided in [google-apps-script/Code.gs](../google-apps-script/Code.gs):
-  paste it into the Apps Script project, deploy a new Web app version, and use the resulting
-  `/exec` URL. The endpoint must return JSON with `{ "ok": true }`; an HTML error page is
-  treated as a failed backup.
+  paste it into the Apps Script project, save it, then choose **Deploy > Manage deployments >
+  Edit**, select **Web app**, set **Execute as: Me** and **Who has access: Anyone**, choose
+  **New version**, and deploy. Use the resulting `/exec` URL. The endpoint must return JSON
+  with `{ "ok": true }`; an HTML error page is treated as a failed backup. The handler creates
+  the `Submissions` tab automatically if it does not exist.
 - Optional: custom domain + TLS on the API host.
 
 ## Website versions
