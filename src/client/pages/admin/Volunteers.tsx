@@ -117,6 +117,8 @@ function StudentModal({ id, onClose, onChanged, config }: { id: string; onClose:
   const [correctHours, setCorrectHours] = useState('');
   const [deleteConfirmation, setDeleteConfirmation] = useState('');
   const [deactivate, setDeactivate] = useState(false);
+  const [permanentDelete, setPermanentDelete] = useState(false);
+  const [studentDeleteConfirmation, setStudentDeleteConfirmation] = useState('');
   const [busy, setBusy] = useState(false);
 
   const s = data?.student;
@@ -283,6 +285,7 @@ function StudentModal({ id, onClose, onChanged, config }: { id: string; onClose:
               </Field>
               <div className="full">
                 <button className="btn btn-danger btn-sm" onClick={() => setDeactivate(true)} disabled={!s.active}>Deactivate record</button>
+                <button className="btn btn-danger btn-sm" onClick={() => setPermanentDelete(true)}>Permanently delete</button>
                 {s.active ? <span className="tiny muted" style={{ marginLeft: 10 }}>Soft-deletes: history is preserved for accountability.</span> : <span className="badge gray">inactive</span>}
               </div>
             </div>
@@ -333,6 +336,26 @@ function StudentModal({ id, onClose, onChanged, config }: { id: string; onClose:
           danger
           onCancel={() => setDeactivate(false)}
           onConfirm={async () => { await saveEdit({ active: 0 }); setDeactivate(false); }}
+        />
+      ) : null}
+      {permanentDelete ? (
+        <ConfirmDialog
+          title="Permanently delete this student?"
+          body={<><p>This permanently removes the student and their submissions, service records, and tracking PIN. Enable hard deletion in retention settings first.</p><Field label="Type DELETE to confirm" required><input className="input" value={studentDeleteConfirmation} onChange={(e) => setStudentDeleteConfirmation(e.target.value)} placeholder="DELETE" /></Field></>}
+          confirmLabel="Permanently delete"
+          danger
+          onCancel={() => { setPermanentDelete(false); setStudentDeleteConfirmation(''); }}
+          onConfirm={async () => {
+            if (studentDeleteConfirmation !== 'DELETE') { toast('error', 'Type DELETE to permanently delete this student.'); return; }
+            try {
+              await api.del(`/api/admin/students/${id}?hard=true&confirm=DELETE`);
+              toast('success', 'Student permanently deleted.');
+              onClose();
+              onChanged();
+            } catch (e) {
+              toast('error', e instanceof ApiError ? e.message : 'Could not permanently delete student.');
+            }
+          }}
         />
       ) : null}
     </Modal>

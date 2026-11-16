@@ -148,6 +148,7 @@ studentsRouter.delete(
     const hard = req.query.hard === 'true';
     if (hard && !retention.allow_hard_delete)
       throw new ApiError(403, 'Hard deletion is disabled by the retention policy. The record was deactivated instead.');
+    if (hard && req.query.confirm !== 'DELETE') throw new ApiError(400, 'Permanent deletion requires confirm=DELETE.');
     const student = db.prepare('SELECT id FROM students WHERE id = ?').get(req.params.id) as any;
     if (!student) throw new ApiError(404, 'Student not found.');
     if (hard) {
