@@ -19,7 +19,11 @@ function clientValidate(f: typeof emptyForm, hourRules: any): Record<string, str
   if (!f.last_name.trim()) errors.last_name = 'Last name is required.';
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(f.email.trim())) errors.email = 'A valid email is required to track your submission.';
   if (!f.school_level) errors.school_level = 'Select your school level.';
-  const eventName = f.event_pick === '__other' ? f.event_other.trim() : f.event_pick;
+  const eventName = f.event_type === 'asynchronous'
+    ? f.event_other.trim()
+    : f.event_pick === '__other'
+      ? f.event_other.trim()
+      : f.event_pick;
   if (!eventName) errors.event_pick = 'Choose an event or activity, or pick “Other”.';
   if (!f.event_date) errors.event_date = 'Event date is required.';
   else if (new Date(`${f.event_date}T12:00:00`).getTime() > Date.now() + 86400000) errors.event_date = 'Event date cannot be in the future.';
@@ -56,7 +60,11 @@ export default function Hours() {
     }
     setSubmitting(true);
     try {
-      const eventName = form.event_pick === '__other' ? form.event_other.trim() : form.event_pick;
+      const eventName = form.event_type === 'asynchronous'
+        ? form.event_other.trim()
+        : form.event_pick === '__other'
+          ? form.event_other.trim()
+          : form.event_pick;
       const pickedEvent = eventList.find((ev) => ev.title === form.event_pick);
       const res = await api.post('/api/submissions', {
         first_name: form.first_name.trim(),
@@ -109,12 +117,12 @@ export default function Hours() {
                 viewing or joining an activity never awards hours automatically.
               </p>
               {created ? (
-                <div className="card card-pad" style={{ background: 'var(--green-soft)', borderColor: 'var(--green)', marginBottom: 18 }}>
-                  <strong style={{ display: 'flex', gap: 8, alignItems: 'center' }}><IconCheck style={{ color: 'var(--green)' }} /> Submission received!</strong>
+                <div className="card card-pad" role="status" style={{ background: 'var(--green-soft)', borderColor: 'var(--green)', marginBottom: 18 }}>
+                  <strong style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: '1.05rem' }}><IconCheck style={{ color: 'var(--green)' }} /> Submission received!</strong>
                   <p className="small muted" style={{ margin: '8px 0' }}>
-                    Use the same email address below, or save this PIN to check your status later:
+                    {created.access_code ? 'Save this PIN now. It is the tracking PIN for this first submission:' : 'Use the same email address below to check all of your submissions:'}
                   </p>
-                  {created.access_code ? <span className="code-chip">{created.access_code}</span> : null}
+                  {created.access_code ? <span className="code-chip" style={{ display: 'inline-block', fontSize: '1.35rem', fontWeight: 800, letterSpacing: '0.12em', padding: '10px 14px' }}>{created.access_code}</span> : null}
                 </div>
               ) : null}
               <form onSubmit={onSubmit} noValidate>
@@ -145,24 +153,38 @@ export default function Hours() {
                       ))}
                     </div>
                   </Field>
-                  <Field label="Event name" required error={errors.event_pick} className="full"
-                    hint="Pick a chapter event/activity, or “Other approved activity”.">
-                    <select className="input" value={form.event_pick} onChange={set('event_pick')}>
-                      <option value="">Select…</option>
-                      <optgroup label="Chapter events (past and upcoming)">
-                        {eventList.map((e) => <option key={e.id} value={e.title}>{e.title}</option>)}
-                      </optgroup>
-                      <optgroup label="Ongoing activities">
-                        {activityList.map((a) => <option key={a.id} value={a.title}>{a.title}</option>)}
-                      </optgroup>
-                      <option value="__other">Other approved activity…</option>
-                    </select>
-                  </Field>
-                  {form.event_pick === '__other' ? (
-                    <Field label="Other approved activity" required error={errors.event_pick} className="full">
-                      <input className="input" value={form.event_other} onChange={set('event_other')} placeholder="e.g. Nursing home visit with family (pre-approved)" />
+                  {form.event_type === 'asynchronous' ? (
+                    <Field label="Club or activity name" required error={errors.event_pick} className="full"
+                      hint="Type the name of the club, organization, or other asynchronous activity.">
+                      <input
+                        className={`input ${errors.event_pick ? 'invalid' : ''}`}
+                        value={form.event_other}
+                        onChange={set('event_other')}
+                        placeholder="e.g. Key Club, NHS, home-based art project"
+                      />
                     </Field>
-                  ) : null}
+                  ) : (
+                    <>
+                      <Field label="Event name" required error={errors.event_pick} className="full"
+                        hint="Pick a chapter event/activity, or “Other approved activity”.">
+                        <select className="input" value={form.event_pick} onChange={set('event_pick')}>
+                          <option value="">Select…</option>
+                          <optgroup label="Chapter events (past and upcoming)">
+                            {eventList.map((e) => <option key={e.id} value={e.title}>{e.title}</option>)}
+                          </optgroup>
+                          <optgroup label="Ongoing activities">
+                            {activityList.map((a) => <option key={a.id} value={a.title}>{a.title}</option>)}
+                          </optgroup>
+                          <option value="__other">Other approved activity…</option>
+                        </select>
+                      </Field>
+                      {form.event_pick === '__other' ? (
+                        <Field label="Other approved activity" required error={errors.event_pick} className="full">
+                          <input className="input" value={form.event_other} onChange={set('event_other')} placeholder="e.g. Nursing home visit with family (pre-approved)" />
+                        </Field>
+                      ) : null}
+                    </>
+                  )}
                   <Field label="Event date" required error={errors.event_date}>
                     <input className="input" type="date" value={form.event_date} onChange={set('event_date')} max={new Date().toISOString().slice(0, 10)} />
                   </Field>
@@ -243,40 +265,24 @@ function MedalTable({ config }: { config: any }) {
 
 function TicketStatusToolbox() {
   const [email, setEmail] = useState('');
-  const [pin, setPin] = useState('');
   const [submittedEmail, setSubmittedEmail] = useState('');
-  const [submittedPin, setSubmittedPin] = useState('');
   const [correction, setCorrection] = useState<any | null>(null);
   const [form, setForm] = useState<any>({});
   const [busy, setBusy] = useState(false);
-  const lookupPath = submittedPin
-    ? `/api/lookup/${encodeURIComponent(submittedPin)}`
-    : submittedEmail
-      ? `/api/lookup?email=${encodeURIComponent(submittedEmail)}`
-      : '';
+  const lookupPath = submittedEmail ? `/api/lookup?email=${encodeURIComponent(submittedEmail)}` : '';
   const { data, loading, error } = useApi<any>(lookupPath);
   const toast = useToast();
   const load = (e: FormEvent) => {
     e.preventDefault();
     setCorrection(null);
-    if (pin.trim()) {
-      setSubmittedPin(pin.trim().toUpperCase());
-      setSubmittedEmail('');
-    } else {
-      setSubmittedEmail(email.trim().toLowerCase());
-      setSubmittedPin('');
-    }
+    setSubmittedEmail(email.trim().toLowerCase());
   };
   const update = (k: string) => (e: any) => setForm((f: any) => ({ ...f, [k]: e.target.value }));
   const sendCorrection = async (e: FormEvent) => {
     e.preventDefault();
     setBusy(true);
     try {
-      if (submittedPin) {
-        await api.post(`/api/lookup/${encodeURIComponent(submittedPin)}/submissions/${correction.id}/correct`, form);
-      } else {
-        await api.post('/api/lookup/correct', { ...form, email: submittedEmail, submission_id: correction.id });
-      }
+      await api.post('/api/lookup/correct', { ...form, email: submittedEmail, submission_id: correction.id });
       toast('success', 'Correction sent back for admin review.');
       setCorrection(null);
       setSubmittedEmail(submittedEmail);
@@ -288,12 +294,10 @@ function TicketStatusToolbox() {
       <div className="section-head" style={{ marginBottom: 18 }}>
         <span className="eyebrow">Private information center</span>
         <h2>Ticket Status / Self Stats Tool Box</h2>
-        <p className="section-sub small">Enter your first-submission PIN or the email used on your submissions to see approval status, approved hours, and medal progress. No public submission database is shown.</p>
+        <p className="section-sub small">Enter the email used on your submissions to see approval status, approved hours, and medal progress. No public submission database is shown.</p>
       </div>
       <form className="toolbar" onSubmit={load}>
-        <input className="input" value={pin} onChange={(e) => setPin(e.target.value)} placeholder="PIN from first submission" aria-label="Tracking PIN" />
-        <span className="muted small">or</span>
-        <input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Enter your email" aria-label="Email" />
+        <input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Enter your email" aria-label="Email" required />
         <button className="btn btn-primary" type="submit">View my tickets</button>
       </form>
       {loading ? <Loading label="Loading your private ticket center…" /> : null}

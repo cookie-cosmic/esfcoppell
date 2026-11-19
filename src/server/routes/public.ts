@@ -119,7 +119,19 @@ publicRouter.get(
     const rows = db.prepare('SELECT * FROM activities WHERE active = 1 ORDER BY position').all() as any[];
     return rows.map((r) => {
       const img = mediaById(r.image_id);
-      return { ...r, image_url: mediaUrl(img), image_alt: img?.alt ?? r.title };
+      const projectImages: Record<string, string> = {
+        'Wishes for Warriors': '/assets/project-wishes.jpg',
+        'Smile Sessions': '/assets/project-smile.jpg',
+        'STEAM Camps': '/assets/project-steam.jpg',
+        'Cards & Bracelets': '/assets/project-cards.png',
+        'Portraits of Hope': '/assets/project-portraits.png',
+        'Storytime Magic': '/assets/project-storytime.jpg',
+      };
+      return {
+        ...r,
+        image_url: mediaUrl(img) ?? projectImages[r.title] ?? null,
+        image_alt: img?.alt ?? r.title,
+      };
     });
   })
 );
