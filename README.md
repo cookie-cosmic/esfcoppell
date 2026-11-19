@@ -12,7 +12,7 @@ media library, settings, and Change History with version restore).
 | Frontend  | React 18 + TypeScript + Vite (SPA, react-router) |
 | Backend   | Node 20 + Express + TypeScript |
 | Database  | SQLite-compatible application layer with optional Supabase Postgres persistence |
-| Auth      | Server-side sessions (httpOnly cookies), six-digit staff PIN, role-based authorization |
+| Auth      | Server-side sessions (httpOnly cookies), configurable numeric staff PIN, role-based authorization |
 | Storage   | Local disk `data/uploads/` with server-side magic-byte image validation |
 
 Production Render deployments use **Supabase Postgres persistence** through the server-only
@@ -36,7 +36,7 @@ npm run seed:sample      # SAMPLE data only — refuses to run over real student
 npm run serve            # serves API + built site on http://localhost:8080
 ```
 
-Set the Render environment variable `ADMIN_PIN` to `119270` (or your chosen six-digit keypad PIN).
+Set the Render environment variable `ADMIN_PIN` to `119270` (or your chosen numeric keypad PIN). PIN length is configurable.
 If the database has no administrator yet, the first valid PIN login creates the internal owner
 identity automatically. Password login is disabled.
 The
@@ -72,7 +72,7 @@ npm run lint             # type-checks server + client
 Admin access is intentionally hidden: click the tiny smile icon at the **bottom-right of the
 footer five times within 3 seconds**. The staff console lives at a private path that is not linked
 anywhere on the public site. Sign-in requires
-**only the six-digit chapter staff PIN**. The egg is discovery-only — it grants nothing
+**only the chapter staff PIN**. The egg is discovery-only — it grants nothing
 without the PIN.
 
 ## Volunteer-hour workflow (core rules)

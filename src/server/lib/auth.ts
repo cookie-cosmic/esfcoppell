@@ -15,6 +15,10 @@ export interface AdminPrincipal {
   role: 'owner' | 'admin' | 'reviewer';
 }
 
+export function requestIp(req: Request): string | null {
+  return req.ip ? req.ip.slice(0, 100) : null;
+}
+
 export function createSession(adminId: string, req: Request): string {
   const id = randomToken(32);
   const expires = new Date(Date.now() + SESSION_HOURS * 3_600_000).toISOString();
@@ -23,7 +27,7 @@ export function createSession(adminId: string, req: Request): string {
     adminId,
     nowIso(),
     expires,
-    req.ip ?? null,
+    requestIp(req),
     (req.get('user-agent') ?? '').slice(0, 200)
   );
   return id;

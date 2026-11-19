@@ -47,24 +47,24 @@ export default function AdminLogin({ session, setSession }: { session: SessionSt
         <h2 style={{ textAlign: 'center', fontSize: '1.5rem' }}>Chapter Staff Sign-in</h2>
         <p className="muted small" style={{ textAlign: 'center' }}>
           Restricted area for Endless Smiles Coppell administrators and reviewers.
-          Enter the six-digit staff PIN to continue.
+          Enter your staff PIN to continue.
         </p>
         <Field label="Your name for the login log" required>
           <input className="input" value={loginName} onChange={(e) => setLoginName(e.target.value.slice(0, 80))} autoComplete="name" required autoFocus aria-label="Your name for the login log" />
         </Field>
         {error ? <p role="alert" className="small" style={{ color: 'var(--crimson)', background: 'var(--crimson-soft)', borderRadius: 10, padding: '8px 12px' }}>{error}</p> : null}
         <Field label="Staff PIN" required>
-          <input className="input" inputMode="numeric" pattern="[0-9]{6}" autoComplete="one-time-code" value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 6))} required aria-label="Staff PIN" />
+          <input className="input" inputMode="numeric" autoComplete="one-time-code" value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))} required aria-label="Staff PIN" />
           <div className="form-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginTop: 12 }}>
             {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((digit) => (
-              <button key={digit} className="btn btn-outline" type="button" onClick={() => setPin((value) => (value + digit).slice(0, 6))}>{digit}</button>
+              <button key={digit} className="btn btn-outline" type="button" onClick={() => setPin((value) => value + digit)}>{digit}</button>
             ))}
             <button className="btn btn-outline" type="button" onClick={() => setPin('')}>Clear</button>
-            <button className="btn btn-outline" type="button" onClick={() => setPin((value) => (value + '0').slice(0, 6))}>0</button>
+            <button className="btn btn-outline" type="button" onClick={() => setPin((value) => value + '0')}>0</button>
             <button className="btn btn-outline" type="button" onClick={() => setPin((value) => value.slice(0, -1))}>Delete</button>
           </div>
         </Field>
-        <button className="btn btn-primary btn-block" disabled={busy || pin.length !== 6} type="submit">
+        <button className="btn btn-primary btn-block" disabled={busy || !pin} type="submit">
           {busy ? <span className="spinner" /> : null} Sign in
         </button>
         <p className="tiny muted" style={{ textAlign: 'center', marginTop: 14 }}>

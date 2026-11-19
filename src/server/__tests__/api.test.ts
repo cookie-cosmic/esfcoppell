@@ -177,6 +177,8 @@ test('anonymous users cannot approve or reach admin endpoints', async () => {
 test('login rate limiting and bad credentials', async () => {
   const bad = await req('POST', '/api/admin/login', { body: { pin: '000000' } });
   assert.equal(bad.status, 401);
+  const wrongLength = await req('POST', '/api/admin/login', { body: { pin: '1234567' } });
+  assert.equal(wrongLength.status, 401);
   const missing = await req('POST', '/api/admin/login', { body: {} });
   assert.equal(missing.status, 401);
 });

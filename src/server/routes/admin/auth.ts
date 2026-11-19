@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { db, nowIso, newId, audit } from '../../db.js';
 import { ah, ApiError } from '../../lib/http.js';
 import { hashPassword, randomToken } from '../../lib/passwords.js';
-import { createSession, destroySession, requireAdmin, requireRole, sessionCookieOptions, sessionTokensFrom, SESSION_COOKIE } from '../../lib/auth.js';
+import { createSession, destroySession, requireAdmin, requireRole, sessionCookieOptions, sessionTokensFrom, SESSION_COOKIE, requestIp } from '../../lib/auth.js';
 
 export const adminAuthRouter = Router();
 
@@ -17,7 +17,7 @@ adminAuthRouter.post(
     const loginName = typeof req.body?.login_name === 'string' ? req.body.login_name.trim().slice(0, 80) : '';
     if (!pin) throw new ApiError(401, 'Staff PIN required.');
     const configuredPin = process.env.ADMIN_PIN;
-    if (!configuredPin || !/^\d{6}$/.test(configuredPin)) throw new ApiError(503, 'Configure a six-digit ADMIN_PIN in the deployment environment.');
+    if (!configuredPin || !/^\d+$/.test(configuredPin)) throw new ApiError(503, 'Configure a numeric ADMIN_PIN in the deployment environment.');
     let rows = db.prepare('SELECT * FROM admin_users WHERE active = 1 ORDER BY created_at').all() as {
       id: string; email: string; password_hash: string; role: string; name: string;
     }[];
@@ -29,12 +29,13 @@ adminAuthRouter.post(
         rows = db.prepare('SELECT * FROM admin_users WHERE active = 1 ORDER BY created_at').all() as typeof rows;
     }
     let matched: typeof rows[number] | undefined;
-    if (!/^\d{6}$/.test(pin)) throw new ApiError(401, 'Invalid PIN.');
+    if (!/^\d+$/.test(pin)) throw new ApiError(401, 'Invalid PIN.');
     if (configuredPin === pin && rows.length) matched = rows[0];
     if (!matched) {
       // constant-ish work to keep timing uniform
       audit(null, 'Unknown sign-in', 'admin.pin_failed', 'admin_session', null, {
-        ip: req.ip ?? null,
+        ip: requestIp(req),
+        user_agent: (req.get('user-agent') ?? '').slice(0, 200),
         method: 'pin',
       });
       throw new ApiError(401, 'Incorrect PIN.');
@@ -42,7 +43,8 @@ adminAuthRouter.post(
     const sessionId = createSession(matched.id, req);
     res.cookie(SESSION_COOKIE, sessionId, sessionCookieOptions());
     audit(matched.id, loginName || matched.name, 'admin.pin_login', 'admin_user', matched.id, {
-      ip: req.ip ?? null,
+      ip: requestIp(req),
+      user_agent: (req.get('user-agent') ?? '').slice(0, 200),
       method: 'pin',
       account_name: matched.name,
       entered_name: loginName || matched.name,

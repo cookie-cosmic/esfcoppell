@@ -17,6 +17,7 @@ import { recordVersionIfChanged, ensureBaselineVersion } from './lib/versions.js
 
 const app = express();
 app.disable('x-powered-by');
+app.set('trust proxy', 1);
 const allowedOrigin = process.env.CLIENT_ORIGIN || 'https://esfcoppell.web.app';
 app.use((req, res, next) => {
   const origin = req.get('origin');
