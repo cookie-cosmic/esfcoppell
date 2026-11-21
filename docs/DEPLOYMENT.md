@@ -148,6 +148,10 @@ the owner identity.
   standalone rather than opened from the spreadsheet, set `SPREADSHEET_ID` at the top of
   `Code.gs` to the spreadsheet ID (the value between `/d/` and `/edit` in its URL), or add
   a Script Property with that name.
+  Replace the entire Apps Script editor contents with [google-apps-script/Code.gs](../google-apps-script/Code.gs);
+  do not wrap `doPost` or `doGet` inside `myFunction()`. Save, edit the active Web app deployment,
+  choose **New version**, and deploy. The existing deployment URL must be the active new version
+  before requests can reach the updated handler.
 - Live Google Sheets backup uses the `Submissions` and `Volunteers` tabs. It backfills all
   existing rows on API startup and updates both tabs after volunteer or submission changes.
   The supplied Coppell web-app URL is:
