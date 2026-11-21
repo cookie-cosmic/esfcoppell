@@ -7,7 +7,13 @@ const SPREADSHEET_ID = '';
 
 function getSpreadsheet() {
   const configuredId = SPREADSHEET_ID || PropertiesService.getScriptProperties().getProperty('SPREADSHEET_ID');
-  return configuredId ? SpreadsheetApp.openById(configuredId) : SpreadsheetApp.getActiveSpreadsheet();
+  if (configuredId) return SpreadsheetApp.openById(configuredId);
+  const bound = SpreadsheetApp.getActiveSpreadsheet();
+  if (bound) return bound;
+
+  const matches = DriveApp.getFilesByName('Endless Smiles BACKUP Responses Sheet');
+  if (matches.hasNext()) return SpreadsheetApp.openById(matches.next().getId());
+  return null;
 }
 
 function doPost(e) {
