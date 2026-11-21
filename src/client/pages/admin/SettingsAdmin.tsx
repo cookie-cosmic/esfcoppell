@@ -6,8 +6,10 @@ import type { SessionState } from '../../App';
 
 export default function SettingsAdmin({ session }: { session: SessionState }) {
   const { data, loading, error, reload } = useApi<any>('/api/admin/settings');
+  const { data: sheetsStatus, reload: reloadSheetsStatus } = useApi<any>('/api/admin/sheets/status');
   const toast = useToast();
   const [draft, setDraft] = useState<any | null>(null);
+  const [resyncing, setResyncing] = useState(false);
   const isOwner = session.admin?.role === 'owner';
 
   useEffect(() => {
@@ -31,10 +33,43 @@ export default function SettingsAdmin({ session }: { session: SessionState }) {
   const setMedal = (lvl: string, medal: 'silver' | 'gold', v: string) =>
     setDraft((d: any) => ({ ...d, medal_requirements: { ...d.medal_requirements, [lvl]: { ...d.medal_requirements[lvl], [medal]: Number(v) } } }));
 
+  const resyncSheets = async () => {
+    if (!isOwner) return;
+    setResyncing(true);
+    try {
+      await api.post('/api/admin/sheets/resync');
+      toast('success', 'Google Sheets resync started.');
+      setTimeout(reloadSheetsStatus, 12_000);
+    } catch (e) {
+      toast('error', e instanceof ApiError ? e.message : 'Google Sheets resync failed.');
+    } finally {
+      setResyncing(false);
+    }
+  };
+
   return (
     <>
       <div className="admin-topbar"><h1>Settings</h1><span className="spacer" /><span className="muted small">Changes apply immediately to the public site and validation rules.</span></div>
       <div className="grid grid-2">
+        {isOwner ? (
+          <section className="card card-pad">
+            <h3>Google Sheets backup</h3>
+            <p className="muted small">Live mirror of volunteer records and submissions.</p>
+            <dl className="kv">
+              <dt>Configuration</dt>
+              <dd><span className={`badge ${sheetsStatus?.configured ? 'approved' : 'declined'}`}>{sheetsStatus?.configured ? 'Configured' : 'Not configured'}</span></dd>
+              <dt>Last attempt</dt>
+              <dd>{sheetsStatus?.last_attempt_at ? new Date(sheetsStatus.last_attempt_at).toLocaleString() : 'None yet'}</dd>
+              <dt>Last success</dt>
+              <dd>{sheetsStatus?.last_success_at ? new Date(sheetsStatus.last_success_at).toLocaleString() : 'None yet'}</dd>
+              <dt>Last error</dt>
+              <dd className="tiny">{sheetsStatus?.last_error || '—'}</dd>
+            </dl>
+            <button className="btn btn-sm btn-primary" disabled={!isOwner || resyncing || !sheetsStatus?.configured} onClick={resyncSheets}>
+              {resyncing ? <span className="spinner" /> : null} Resync all rows
+            </button>
+          </section>
+        ) : null}
         <section className="card card-pad">
           <h3>Social links</h3>
           <p className="muted small">Optional links shown in the public footer.</p>
