@@ -3,8 +3,26 @@ import { db, computeChapterStats } from '../../db.js';
 import { ah, ApiError } from '../../lib/http.js';
 import { requireAdmin, requireRole } from '../../lib/auth.js';
 import { approveSubmission, approveSubmissions, declineSubmission, requestCorrection, addReviewNote, deleteSubmission } from '../../lib/submissions.js';
+import { googleSheetsState, syncAllGoogleSheets } from '../../lib/google-sheets.js';
 
 export const approvalsRouter = Router();
+
+approvalsRouter.get(
+  '/sheets/status',
+  ah((req) => {
+    requireRole(req, 'admin', 'owner');
+    return googleSheetsState;
+  })
+);
+
+approvalsRouter.post(
+  '/sheets/resync',
+  ah((req) => {
+    requireRole(req, 'admin', 'owner');
+    void syncAllGoogleSheets();
+    return { ok: true, started: true };
+  })
+);
 
 /** Overview cards — all derived from the database. */
 approvalsRouter.get(

@@ -17,7 +17,7 @@ import { ah, ApiError } from '../lib/http.js';
 import { MEMBER_COOKIE, memberCookieValue, verifyMember, sessionCookieOptions, signMember } from '../lib/auth.js';
 import { rateLimit, HOUR } from '../lib/ratelimit.js';
 import { validateSubmission, createSubmission, correctSubmission, correctSubmissionByEmail, hourRules } from '../lib/submissions.js';
-import { syncSubmissionToGoogleSheet } from '../lib/google-sheets.js';
+import { syncSubmissionToGoogleSheet, googleSheetsState } from '../lib/google-sheets.js';
 
 export const publicRouter = Router();
 
@@ -442,5 +442,6 @@ publicRouter.get('/health', (_req, res) => {
       supabase_last_error_kind: status.last_error_kind,
       durable: cloudPersistenceEnabled() ? status.state === 'ready' : !required,
     },
+    google_sheets: googleSheetsState,
   });
 });

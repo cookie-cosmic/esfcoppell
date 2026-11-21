@@ -2,9 +2,25 @@ import { db } from '../db.js';
 
 const SHEETS_URL = process.env.GOOGLE_SHEETS_WEBHOOK_URL?.trim();
 const SHEET_TAB = process.env.GOOGLE_SHEETS_TAB?.trim() || 'Submissions';
+export const googleSheetsState = {
+  configured: Boolean(SHEETS_URL),
+  last_attempt_at: null as string | null,
+  last_success_at: null as string | null,
+  last_error: null as string | null,
+};
+let retryScheduled = false;
+function scheduleSheetsRetry() {
+  if (retryScheduled || !SHEETS_URL) return;
+  retryScheduled = true;
+  setTimeout(() => {
+    retryScheduled = false;
+    void syncAllGoogleSheets();
+  }, 60_000);
+}
 
 async function post(payload: Record<string, unknown>, label: string): Promise<boolean> {
   if (!SHEETS_URL) return false;
+  googleSheetsState.last_attempt_at = new Date().toISOString();
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 10_000);
   try {
@@ -19,11 +35,18 @@ async function post(payload: Record<string, unknown>, label: string): Promise<bo
     try { result = JSON.parse(body) as { ok?: boolean; error?: string }; } catch { result = null; }
     if (!response.ok || !result?.ok) {
       console.error(`[google-sheets] ${label} failed: HTTP ${response.status} ${result?.error ?? body.slice(0, 240)}`);
+      googleSheetsState.last_error = `HTTP ${response.status}: ${result?.error ?? body.slice(0, 240)}`;
+      scheduleSheetsRetry();
       return false;
     }
+    googleSheetsState.last_success_at = new Date().toISOString();
+    googleSheetsState.last_error = null;
     return true;
   } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
     console.error(`[google-sheets] ${label} failed`, error);
+    googleSheetsState.last_error = message;
+    scheduleSheetsRetry();
     return false;
   } finally {
     clearTimeout(timeout);
