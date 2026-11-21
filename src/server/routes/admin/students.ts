@@ -3,6 +3,7 @@ import { db, nowIso, newId, audit, approvedTotalFor, getSetting } from '../../db
 import { ah, ApiError, requireFields, validReal, isDate } from '../../lib/http.js';
 import { requireRole } from '../../lib/auth.js';
 import { reverseRecord, restoreRecord, correctRecord } from '../../lib/submissions.js';
+import { syncVolunteerToGoogleSheet, deleteVolunteerFromGoogleSheet } from '../../lib/google-sheets.js';
 
 export const studentsRouter = Router();
 
@@ -113,6 +114,7 @@ studentsRouter.post(
       ts
     );
     audit(admin.id, admin.name, 'student.create', 'student', id, { email: req.body.email ?? null });
+    void syncVolunteerToGoogleSheet(id);
     res.status(201);
     return { id };
   })
@@ -135,6 +137,7 @@ studentsRouter.patch(
       student.id
     );
     audit(admin.id, admin.name, 'student.update', 'student', student.id, { first_name, last_name, school_level, active });
+    void syncVolunteerToGoogleSheet(student.id);
     return { ok: true };
   })
 );
@@ -154,9 +157,11 @@ studentsRouter.delete(
     if (hard) {
       db.prepare('DELETE FROM students WHERE id = ?').run(student.id);
       audit(admin.id, admin.name, 'student.hard_delete', 'student', student.id, {});
+      void deleteVolunteerFromGoogleSheet(student.id);
     } else {
       db.prepare('UPDATE students SET active = 0, updated_at = ? WHERE id = ?').run(nowIso(), student.id);
       audit(admin.id, admin.name, 'student.deactivate', 'student', student.id, {});
+      void syncVolunteerToGoogleSheet(student.id);
     }
     return { ok: true, hard };
   })
@@ -190,6 +195,7 @@ studentsRouter.post(
       reason: body.reason,
       new_total: approvedTotalFor(student.id),
     });
+    void syncVolunteerToGoogleSheet(student.id);
     res.status(201);
     return { id, total_hours: approvedTotalFor(student.id) };
   })
@@ -200,7 +206,10 @@ studentsRouter.post(
   '/records/:id/reverse',
   ah((req, res) => {
     const admin = requireRole(req, 'admin', 'owner');
-    return reverseRecord(req.params.id, admin, String(req.body?.reason ?? ''));
+    const record = db.prepare('SELECT student_id FROM service_records WHERE id = ?').get(req.params.id) as { student_id: string } | undefined;
+    const result = reverseRecord(req.params.id, admin, String(req.body?.reason ?? ''));
+    if (record) void syncVolunteerToGoogleSheet(record.student_id);
+    return result;
   })
 );
 
@@ -208,7 +217,10 @@ studentsRouter.post(
   '/records/:id/restore',
   ah((req, res) => {
     const admin = requireRole(req, 'admin', 'owner');
-    return restoreRecord(req.params.id, admin, String(req.body?.reason ?? ''));
+    const record = db.prepare('SELECT student_id FROM service_records WHERE id = ?').get(req.params.id) as { student_id: string } | undefined;
+    const result = restoreRecord(req.params.id, admin, String(req.body?.reason ?? ''));
+    if (record) void syncVolunteerToGoogleSheet(record.student_id);
+    return result;
   })
 );
 
@@ -218,7 +230,10 @@ studentsRouter.patch(
     const admin = requireRole(req, 'admin', 'owner');
     const hours = validReal(req.body?.hours, 0.25, 24);
     if (hours === null) throw new ApiError(422, 'Hours must be between 0.25 and 24.');
-    return correctRecord(req.params.id, admin, hours, String(req.body?.reason ?? ''));
+    const record = db.prepare('SELECT student_id FROM service_records WHERE id = ?').get(req.params.id) as { student_id: string } | undefined;
+    const result = correctRecord(req.params.id, admin, hours, String(req.body?.reason ?? ''));
+    if (record) void syncVolunteerToGoogleSheet(record.student_id);
+    return result;
   })
 );
 
@@ -239,6 +254,7 @@ studentsRouter.delete(
       hours: record.hours,
       event_name: record.event_name,
     });
+    void syncVolunteerToGoogleSheet(record.student_id);
     return { ok: true, permanently_deleted: true };
   })
 );

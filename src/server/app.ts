@@ -14,6 +14,7 @@ import { mediaRouter } from './routes/admin/media.js';
 import { settingsRouter } from './routes/admin/settings.js';
 import { versionsRouter } from './routes/admin/versions.js';
 import { recordVersionIfChanged, ensureBaselineVersion } from './lib/versions.js';
+import { syncAllGoogleSheets } from './lib/google-sheets.js';
 
 const app = express();
 app.disable('x-powered-by');
@@ -145,5 +146,6 @@ if (!hasContent) {
 
 ensureBaselineVersion();
 scheduleCloudSnapshot(db, UPLOAD_DIR);
+void syncAllGoogleSheets();
 
 export default app;

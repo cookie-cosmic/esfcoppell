@@ -148,6 +148,10 @@ the owner identity.
   standalone rather than opened from the spreadsheet, set `SPREADSHEET_ID` at the top of
   `Code.gs` to the spreadsheet ID (the value between `/d/` and `/edit` in its URL), or add
   a Script Property with that name.
+- Live Google Sheets backup uses the `Submissions` and `Volunteers` tabs. It backfills all
+  existing rows on API startup and updates both tabs after volunteer or submission changes.
+  The supplied Coppell web-app URL is:
+  `https://script.google.com/a/macros/g.coppellisd.com/s/AKfycbzuio_DBPMm8PxlXbKqwQ9LTkTMU_kvFZg9NhBWKPl6YT_-iYoLcoij8OWMX29Bn18B4w/exec`
 - Optional: custom domain + TLS on the API host.
 
 ## Website versions

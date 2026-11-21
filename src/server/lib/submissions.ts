@@ -2,7 +2,7 @@ import { db, getSetting, newId, nowIso, audit, approvedTotalFor } from '../db.js
 import { ApiError, isDate, isTime, syncDurationHours, validReal } from './http.js';
 import { newAccessCode } from './passwords.js';
 import type { AdminPrincipal } from './auth.js';
-import { syncSubmissionToGoogleSheet } from './google-sheets.js';
+import { syncSubmissionToGoogleSheet, deleteSubmissionFromGoogleSheet, syncVolunteerToGoogleSheet } from './google-sheets.js';
 
 export interface HourRules {
   max_hours_per_submission: number;
@@ -189,7 +189,7 @@ export function createSubmission(input: SubmissionInput, computedHours: number |
 }
 
 export function deleteSubmission(submissionId: string, admin: AdminPrincipal) {
-  return db.transaction(() => {
+  const result = db.transaction(() => {
     const submission = db.prepare('SELECT id, status, student_id, event_name, total_hours FROM submissions WHERE id = ?').get(submissionId) as
       | { id: string; status: string; student_id: string; event_name: string; total_hours: number }
       | undefined;
@@ -204,8 +204,11 @@ export function deleteSubmission(submissionId: string, admin: AdminPrincipal) {
       total_hours: submission.total_hours,
       status: submission.status,
     });
-    return { ok: true, submission_id: submission.id, deleted: true };
+    return { ok: true, submission_id: submission.id, deleted: true, student_id: submission.student_id };
   })();
+  void deleteSubmissionFromGoogleSheet(submissionId);
+  void syncVolunteerToGoogleSheet(result.student_id);
+  return result;
 }
 
 /** Replace the data on a correction-requested submission and return it to review. */

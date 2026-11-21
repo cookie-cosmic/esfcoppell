@@ -24,7 +24,7 @@ services:
       - key: SUPABASE_DB_URL
         sync: false
       - key: GOOGLE_SHEETS_WEBHOOK_URL
-        sync: false
+        value: https://script.google.com/a/macros/g.coppellisd.com/s/AKfycbzuio_DBPMm8PxlXbKqwQ9LTkTMU_kvFZg9NhBWKPl6YT_-iYoLcoij8OWMX29Bn18B4w/exec
       - key: GOOGLE_SHEETS_TAB
         value: Submissions
     disk:
